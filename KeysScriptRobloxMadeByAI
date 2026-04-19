@@ -1,0 +1,154 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "Manus Hub | KEYS (Otimizado)",
+   LoadingTitle = "Carregando Scripts...",
+   LoadingSubtitle = "por Manus AI",
+   ConfigurationSaving = {
+      Enabled = true,
+      FolderName = "ManusHub",
+      FileName = "KeysConfig"
+   }
+})
+
+-- Variáveis de Controle
+local PlayerColor = Color3.fromRGB(255, 0, 0)
+local NPCColor = Color3.fromRGB(0, 255, 0)
+local ESP_Enabled = false
+local NPC_ESP_Enabled = false
+
+-- Funções Auxiliares para ESP (Chams)
+local function ApplyChams(object, color)
+    if not object:FindFirstChild("ManusChams") then
+        local highlight = Instance.new("Highlight")
+        highlight.Name = "ManusChams"
+        highlight.FillColor = color
+        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+        highlight.FillTransparency = 0.5
+        highlight.OutlineTransparency = 0
+        highlight.Parent = object
+    else
+        object.ManusChams.FillColor = color
+    end
+end
+
+-- Loop para atualizar ESP (Otimizado para 2 segundos para poupar CPU)
+task.spawn(function()
+    while task.wait(2) do
+        if ESP_Enabled then
+            for _, player in pairs(game.Players:GetPlayers()) do
+                if player ~= game.Players.LocalPlayer and player.Character then
+                    ApplyChams(player.Character, PlayerColor)
+                end
+            end
+        end
+        
+        if NPC_ESP_Enabled then
+            for _, obj in pairs(workspace:GetDescendants()) do
+                if obj:IsA("Humanoid") and obj.Parent and not game.Players:GetPlayerFromCharacter(obj.Parent) then
+                    ApplyChams(obj.Parent, NPCColor)
+                end
+            end
+        end
+    end
+end)
+
+--- ABA HUMANOID ---
+local TabHumanoid = Window:CreateTab("Humanoid", 4483362458)
+
+TabHumanoid:CreateSlider({
+   Name = "Velocidade (WalkSpeed)",
+   Range = {16, 300},
+   Increment = 1,
+   Suffix = "Speed",
+   CurrentValue = 16,
+   Callback = function(Value)
+      if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
+          game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = Value
+      end
+   end,
+})
+
+TabHumanoid:CreateToggle({
+   Name = "Pulo Infinito",
+   CurrentValue = false,
+   Callback = function(Value)
+      _G.InfJump = Value
+      game:GetService("UserInputService").JumpRequest:Connect(function()
+          if _G.InfJump and game.Players.LocalPlayer.Character then
+              game.Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
+          end
+      end)
+   end,
+})
+
+TabHumanoid:CreateToggle({
+   Name = "Noclip",
+   CurrentValue = false,
+   Callback = function(Value)
+      _G.Noclip = Value
+      game:GetService("RunService").Stepped:Connect(function()
+          if _G.Noclip and game.Players.LocalPlayer.Character then
+              for _, v in pairs(game.Players.LocalPlayer.Character:GetDescendants()) do
+                  if v:IsA("BasePart") then v.CanCollide = false end
+              end
+          end
+      end)
+   end,
+})
+
+--- ABA ESP ---
+local TabESP = Window:CreateTab("Visuals (ESP)", 4483362458)
+
+TabESP:CreateSection("Jogadores")
+TabESP:CreateToggle({
+   Name = "Ativar ESP Jogadores",
+   CurrentValue = false,
+   Callback = function(Value) ESP_Enabled = Value end,
+})
+TabESP:CreateColorPicker({
+    Name = "Cor do ESP Jogadores",
+    Color = Color3.fromRGB(255, 0, 0),
+    Callback = function(Value) PlayerColor = Value end
+})
+
+TabESP:CreateSection("NPCs")
+TabESP:CreateToggle({
+   Name = "Ativar ESP NPCs",
+   CurrentValue = false,
+   Callback = function(Value) NPC_ESP_Enabled = Value end,
+})
+TabESP:CreateColorPicker({
+    Name = "Cor do ESP NPCs",
+    Color = Color3.fromRGB(0, 255, 0),
+    Callback = function(Value) NPCColor = Value end
+})
+
+--- ABA MISC ---
+local TabMisc = Window:CreateTab("Misc", 4483362458)
+
+TabMisc:CreateToggle({
+   Name = "No Prompt Cooldown (Otimizado)",
+   CurrentValue = false,
+   Callback = function(Value)
+      _G.NoPromptCooldown = Value
+      if Value then
+          -- Método Otimizado: Altera os existentes e monitora novos sem loop pesado
+          for _, v in pairs(game:GetDescendants()) do
+              if v:IsA("ProximityPrompt") then
+                  v.HoldDuration = 0
+              end
+          end
+          -- Conexão para novos itens que aparecerem no mapa
+          _G.PromptConnection = game.DescendantAdded:Connect(function(v)
+              if _G.NoPromptCooldown and v:IsA("ProximityPrompt") then
+                  v.HoldDuration = 0
+              end
+          end)
+      else
+          if _G.PromptConnection then _G.PromptConnection:Disconnect() end
+      end
+   end,
+})
+
+Rayfield:LoadConfiguration()
