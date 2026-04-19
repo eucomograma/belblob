@@ -1,82 +1,124 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "KEYS 🔑 | Hub",
-   LoadingTitle = "Otimização Extrema...",
-   LoadingSubtitle = "por Bex",
-   ConfigurationSaving = {Enabled = true, FolderName = "KeysHub", FileName = "KeysConfig"}
+   Name = "KEYS 🔑 | Blehb Hub",
+   LoadingTitle = "Configurando Visuals...",
+   LoadingSubtitle = "feito por Manus AI",
+   ConfigurationSaving = {Enabled = true, FolderName = "BlehbHub", FileName = "KeysConfig"}
 })
 
 -- Variáveis de Controle
-local PlayerColor = Color3.fromRGB(255, 0, 0)
-local NPCColor = Color3.fromRGB(0, 255, 0)
 local ESP_Enabled = false
 local NPC_ESP_Enabled = false
+local NPC_Names_Enabled = false
 local Rainbow_ESP = false
-local Speed_Enabled = false
-local TargetSpeed = 16
+local Chams_Mode = "Fill" -- "Fill" ou "Outline"
+local AnimSpeed_Enabled = false
+local AnimSpeed_Value = 1
+local Gravity_Enabled = false
+local Gravity_Value = 196
 
--- Função para Cor Rainbow
+local PlayerColor = Color3.fromRGB(255, 0, 0)
+local NPCColor = Color3.fromRGB(0, 255, 0)
+
+-- Função Rainbow
 local function GetRainbowColor()
     return Color3.fromHSV(tick() % 5 / 5, 1, 1)
 end
 
--- Função para Limpar Chams
-local function ClearAllChams()
-    for _, v in pairs(workspace:GetDescendants()) do
-        if v.Name == "ManusChams" then
-            v:Destroy()
+-- Função para criar/atualizar Billboard (Nome e Distância)
+local function UpdateBillboard(parent, text)
+    local head = parent:FindFirstChild("Head")
+    if head then
+        local billboard = head:FindFirstChild("ManusESP")
+        if not billboard then
+            billboard = Instance.new("BillboardGui")
+            billboard.Name = "ManusESP"
+            billboard.Size = UDim2.new(0, 200, 0, 50)
+            billboard.Adornee = head
+            billboard.AlwaysOnTop = true
+            billboard.StudsOffset = Vector3.new(0, 3, 0)
+            
+            local label = Instance.new("TextLabel")
+            label.Parent = billboard
+            label.BackgroundTransparency = 1
+            label.Size = UDim2.new(1, 0, 1, 0)
+            label.Font = Enum.Font.SourceSansBold
+            label.TextSize = 14
+            label.TextStrokeTransparency = 0
+            label.TextColor3 = Color3.new(1, 1, 1)
+            billboard.Parent = head
         end
+        billboard.TextLabel.Text = text
     end
 end
 
--- Funções Auxiliares para ESP (Chams)
-local function ApplyChams(object, color)
-    local targetColor = Rainbow_ESP and GetRainbowColor() or color
-    local highlight = object:FindFirstChild("ManusChams")
+-- Gerenciador de Visuals (Chams e Outlines)
+local function ApplyVisuals(parent, color)
+    local highlight = parent:FindFirstChild("ManusHighlight")
     if not highlight then
         highlight = Instance.new("Highlight")
-        highlight.Name = "ManusChams"
-        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-        highlight.FillTransparency = 0.5
-        highlight.Parent = object
+        highlight.Name = "ManusHighlight"
+        highlight.Parent = parent
     end
+    
+    local targetColor = Rainbow_ESP and GetRainbowColor() or color
     highlight.FillColor = targetColor
+    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+    
+    if Chams_Mode == "Outline" then
+        highlight.FillTransparency = 1
+        highlight.OutlineTransparency = 0
+    else
+        highlight.FillTransparency = 0.5
+        highlight.OutlineTransparency = 0
+    end
 end
 
--- Loop de Velocidade (Separado para ser instantâneo)
+-- Loop Principal (Otimizado)
 task.spawn(function()
-    while task.wait() do
-        if Speed_Enabled then
+    while task.wait(0.1) do
+        -- 1. Gravidade
+        workspace.Gravity = Gravity_Enabled and Gravity_Value or 196.2
+        
+        -- 2. Velocidade de Animação
+        pcall(function()
             local char = game.Players.LocalPlayer.Character
-            local hum = char and char:FindFirstChildOfClass("Humanoid")
-            if hum then
-                hum.WalkSpeed = TargetSpeed
-            end
-        end
-    end
-end)
-
--- Loop de ESP (Otimizado: Roda a cada 1 segundo para evitar lag)
-task.spawn(function()
-    while task.wait(1) do
-        if not ESP_Enabled and not NPC_ESP_Enabled then
-            -- Se ambos desligados, não faz nada (economiza CPU)
-        else
-            -- ESP Jogadores
-            if ESP_Enabled then
-                for _, player in pairs(game.Players:GetPlayers()) do
-                    if player ~= game.Players.LocalPlayer and player.Character then
-                        ApplyChams(player.Character, PlayerColor)
+            if char and char:FindFirstChild("Humanoid") then
+                local animator = char.Humanoid:FindFirstChildOfClass("Animator")
+                if animator then
+                    for _, track in pairs(animator:GetPlayingAnimationTracks()) do
+                        track:AdjustSpeed(AnimSpeed_Enabled and AnimSpeed_Value or 1)
                     end
                 end
             end
-            
-            -- ESP NPCs (Busca apenas por modelos com Humanoid)
+        end)
+
+        -- 3. ESP e Visuals
+        if not ESP_Enabled and not NPC_ESP_Enabled then
+            for _, v in pairs(workspace:GetDescendants()) do
+                if v.Name == "ManusHighlight" or v.Name == "ManusESP" then v:Destroy() end
+            end
+        else
+            -- Jogadores
+            if ESP_Enabled then
+                for _, p in pairs(game.Players:GetPlayers()) do
+                    if p ~= game.Players.LocalPlayer and p.Character then
+                        ApplyVisuals(p.Character, PlayerColor)
+                    end
+                end
+            end
+            -- NPCs
             if NPC_ESP_Enabled then
-                for _, obj in pairs(workspace:GetChildren()) do -- GetChildren é MUITO mais leve que GetDescendants
-                    if obj:IsA("Model") and obj:FindFirstChildOfClass("Humanoid") and not game.Players:GetPlayerFromCharacter(obj) then
-                        ApplyChams(obj, NPCColor)
+                for _, v in pairs(workspace:GetDescendants()) do
+                    if v:IsA("Humanoid") and v.Parent and not game.Players:GetPlayerFromCharacter(v.Parent) then
+                        ApplyVisuals(v.Parent, NPCColor)
+                        if NPC_Names_Enabled then
+                            local dist = math.floor((game.Players.LocalPlayer.Character.HumanoidRootPart.Position - v.Parent.HumanoidRootPart.Position).Magnitude)
+                            UpdateBillboard(v.Parent, v.Parent.Name .. " [" .. dist .. "m]")
+                        elseif v.Parent:FindFirstChild("Head") and v.Parent.Head:FindFirstChild("ManusESP") then
+                            v.Parent.Head.ManusESP:Destroy()
+                        end
                     end
                 end
             end
@@ -87,87 +129,65 @@ end)
 --- ABA HUMANOID ---
 local TabHumanoid = Window:CreateTab("Humanoid", 4483362458)
 
+TabHumanoid:CreateSection("Animações")
 TabHumanoid:CreateToggle({
-   Name = "Ativar Velocidade Forçada",
+   Name = "Ativar Velocidade de Animação",
    CurrentValue = false,
-   Callback = function(Value)
-      Speed_Enabled = Value
-      if not Value then
-          local hum = game.Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-          if hum then hum.WalkSpeed = 16 end
-      end
-   end,
+   Callback = function(Value) AnimSpeed_Enabled = Value end,
 })
-
 TabHumanoid:CreateSlider({
    Name = "Velocidade",
-   Range = {16, 300},
+   Range = {0, 10},
+   Increment = 0.1,
+   CurrentValue = 1,
+   Callback = function(Value) AnimSpeed_Value = Value end,
+})
+
+TabHumanoid:CreateSection("Mundo")
+TabHumanoid:CreateToggle({
+   Name = "Ativar Gravidade Customizada",
+   CurrentValue = false,
+   Callback = function(Value) Gravity_Enabled = Value end,
+})
+TabHumanoid:CreateSlider({
+   Name = "Gravidade",
+   Range = {0, 196},
    Increment = 1,
-   Suffix = " Speed",
-   CurrentValue = 16,
-   Callback = function(Value) TargetSpeed = Value end,
+   CurrentValue = 196,
+   Callback = function(Value) Gravity_Value = Value end,
 })
 
-TabHumanoid:CreateToggle({
-   Name = "Pulo Infinito",
-   CurrentValue = false,
-   Callback = function(Value)
-      _G.InfJump = Value
-      game:GetService("UserInputService").JumpRequest:Connect(function()
-          if _G.InfJump and game.Players.LocalPlayer.Character then
-              game.Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
-          end
-      end)
-   end,
-})
-
-TabHumanoid:CreateToggle({
-   Name = "Noclip",
-   CurrentValue = false,
-   Callback = function(Value)
-      _G.Noclip = Value
-      game:GetService("RunService").Stepped:Connect(function()
-          if _G.Noclip and game.Players.LocalPlayer.Character then
-              for _, v in pairs(game.Players.LocalPlayer.Character:GetDescendants()) do
-                  if v:IsA("BasePart") then v.CanCollide = false end
-              end
-          end
-      end)
-   end,
-})
+TabHumanoid:CreateSection("Ações")
+TabHumanoid:CreateButton({Name = "Tropeçar (Trip)", Callback = function() 
+    local h = game.Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    if h then h:ChangeState(Enum.HumanoidStateType.FallingDown) end
+end})
+TabHumanoid:CreateButton({Name = "Sentar (Sit)", Callback = function()
+    local h = game.Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    if h then h.Sit = not h.Sit end
+end})
 
 --- ABA ESP ---
 local TabESP = Window:CreateTab("Visuals (ESP)", 4483362458)
 
-TabESP:CreateToggle({
-   Name = "ESP Colorido (Rainbow Mode)",
-   CurrentValue = false,
-   Callback = function(Value) Rainbow_ESP = Value end,
+TabESP:CreateDropdown({
+   Name = "Modo do ESP (Chams)",
+   Options = {"Fill", "Outline"},
+   CurrentOption = "Fill",
+   Callback = function(Option) Chams_Mode = Option end,
 })
+
+TabESP:CreateToggle({Name = "Rainbow Mode", CurrentValue = false, Callback = function(Value) Rainbow_ESP = Value end})
 
 TabESP:CreateSection("Jogadores")
-TabESP:CreateToggle({
-   Name = "Ativar ESP Jogadores",
-   CurrentValue = false,
-   Callback = function(Value) 
-      ESP_Enabled = Value 
-      if not Value then ClearAllChams() end
-   end,
-})
+TabESP:CreateToggle({Name = "ESP Jogadores", CurrentValue = false, Callback = function(Value) ESP_Enabled = Value end})
 
 TabESP:CreateSection("NPCs")
-TabESP:CreateToggle({
-   Name = "Ativar ESP NPCs",
-   CurrentValue = false,
-   Callback = function(Value) 
-      NPC_ESP_Enabled = Value 
-      if not Value then ClearAllChams() end
-   end,
-})
+TabESP:CreateToggle({Name = "ESP NPCs (Chams)", CurrentValue = false, Callback = function(Value) NPC_ESP_Enabled = Value end})
+TabESP:CreateToggle({Name = "Exibir Nome e Distância", CurrentValue = false, Callback = function(Value) NPC_Names_Enabled = Value end})
 
 --- ABA MISC ---
 local TabMisc = Window:CreateTab("Misc", 4483362458)
-
 TabMisc:CreateToggle({
    Name = "No Prompt Cooldown",
    CurrentValue = false,
