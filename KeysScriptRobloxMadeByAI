@@ -2,7 +2,7 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
    Name = "KEYS 🔑 | 🛠️✨",
-   LoadingTitle = "🚀 Inicializando...",
+   LoadingTitle = "🚀 Otimizando Velocidade...",
    LoadingSubtitle = "por Manus AI",
    ConfigurationSaving = {Enabled = true, FolderName = "ManusHub", FileName = "KeysConfig"}
 })
@@ -54,7 +54,7 @@ local function UpdateBillboard(parent, text)
     end
 end
 
--- Gerenciador de Visuals (Apenas Chams agora)
+-- Gerenciador de Visuals
 local function ApplyVisuals(parent, color)
     local highlight = parent:FindFirstChild("ManusHighlight")
     if not highlight then
@@ -70,22 +70,25 @@ local function ApplyVisuals(parent, color)
     highlight.OutlineTransparency = 0
 end
 
--- Loop Principal
+-- LOOP EXCLUSIVO PARA TP WALK (Alta Performance / Sem Lag)
 task.spawn(function()
-    while task.wait(0.05) do -- Loop mais rápido para TPWalk ser fluido
-        -- 1. TP Walk
+    game:GetService("RunService").Heartbeat:Connect(function()
         if TPWalk_Enabled then
             local char = game.Players.LocalPlayer.Character
             local hum = char and char:FindFirstChild("Humanoid")
-            if hum and hum.MoveDirection.Magnitude > 0 then
-                char:TranslateBy(hum.MoveDirection * (TPWalk_Speed / 10))
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+            if hum and root and hum.MoveDirection.Magnitude > 0 then
+                root.CFrame = root.CFrame + (hum.MoveDirection * (TPWalk_Speed / 10))
             end
         end
+    end)
+end)
 
-        -- 2. Gravidade
+-- Loop Secundário (Visuals e Mundo)
+task.spawn(function()
+    while task.wait(0.1) do
         workspace.Gravity = Gravity_Enabled and Gravity_Value or 196.2
         
-        -- 3. Velocidade de Animação
         pcall(function()
             local char = game.Players.LocalPlayer.Character
             if char and char:FindFirstChild("Humanoid") then
@@ -98,7 +101,6 @@ task.spawn(function()
             end
         end)
 
-        -- 4. ESP
         if not ESP_Enabled and not NPC_ESP_Enabled then
             for _, v in pairs(workspace:GetDescendants()) do
                 if v.Name == "ManusHighlight" or v.Name == "ManusESP" then v:Destroy() end
@@ -134,7 +136,7 @@ end)
 local TabHumanoid = Window:CreateTab("👤 Humanoid", 4483362458)
 
 TabHumanoid:CreateSection("🏃 Movimentação (TP Walk)")
-TabHumanoid:CreateLabel("⚠️ Valores acima de 5 podem ser muito rápidos!")
+TabHumanoid:CreateLabel("⚠️ Valores acima de 5 podem ser instáveis em alguns mapas!")
 
 TabHumanoid:CreateToggle({
    Name = "⚡ Ativar TP Walk",
@@ -144,8 +146,8 @@ TabHumanoid:CreateToggle({
 
 TabHumanoid:CreateSlider({
    Name = "⏩ Velocidade TP",
-   Range = {1, 10},
-   Increment = 0.1,
+   Range = {1, 30},
+   Increment = 0.5,
    CurrentValue = 1,
    Callback = function(Value) TPWalk_Speed = Value end,
 })
