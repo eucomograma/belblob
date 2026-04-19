@@ -1,9 +1,9 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "KEYS 🔑 |,
-   LoadingTitle = "Restaurando Estabilidade...",
-   LoadingSubtitle = "por um cara ai",
+   Name = "KEYS 🔑 | XD",
+   LoadingTitle = "Finalizando Script...",
+   LoadingSubtitle = "KEYS script",
    ConfigurationSaving = {
       Enabled = true,
       FolderName = "Keys",
@@ -17,6 +17,8 @@ local NPCColor = Color3.fromRGB(0, 255, 0)
 local ESP_Enabled = false
 local NPC_ESP_Enabled = false
 local Rainbow_ESP = false
+local Speed_Enabled = false
+local TargetSpeed = 16
 
 -- Função para Cor Rainbow
 local function GetRainbowColor()
@@ -39,9 +41,19 @@ local function ApplyChams(object, color)
     end
 end
 
--- Loop de Atualização de ESP (Otimizado)
+-- Loop de Atualização (Otimizado para não dar lag)
 task.spawn(function()
     while task.wait(0.1) do
+        -- Forçar Velocidade (Só roda se o Toggle estiver ligado)
+        if Speed_Enabled then
+            local char = game.Players.LocalPlayer.Character
+            local hum = char and char:FindFirstChild("Humanoid")
+            if hum then
+                hum.WalkSpeed = TargetSpeed
+            end
+        end
+
+        -- ESP
         if ESP_Enabled then
             for _, player in pairs(game.Players:GetPlayers()) do
                 if player ~= game.Players.LocalPlayer and player.Character then
@@ -63,18 +75,28 @@ end)
 --- ABA HUMANOID ---
 local TabHumanoid = Window:CreateTab("Humanoid", 4483362458)
 
-TabHumanoid:CreateSlider({
-   Name = "Velocidade (WalkSpeed)",
-   Range = {16, 300},
-   Increment = 1,
-   Suffix = "Speed",
-   CurrentValue = 16,
+TabHumanoid:CreateSection("Velocidade")
+
+TabHumanoid:CreateToggle({
+   Name = "Ativar Velocidade Customizada",
+   CurrentValue = false,
    Callback = function(Value)
-      if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
-          game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = Value
-      end
+      Speed_Enabled = Value
    end,
 })
+
+TabHumanoid:CreateSlider({
+   Name = "Ajustar Velocidade",
+   Range = {16, 300},
+   Increment = 1,
+   Suffix = " Speed",
+   CurrentValue = 16,
+   Callback = function(Value)
+      TargetSpeed = Value
+   end,
+})
+
+TabHumanoid:CreateSection("Outros")
 
 TabHumanoid:CreateToggle({
    Name = "Pulo Infinito",
@@ -146,14 +168,13 @@ TabMisc:CreateToggle({
    Callback = function(Value)
       _G.NoPromptCooldown = Value
       if Value then
-          -- Método de Alta Performance: Usa o serviço nativo de Prompts
+          -- Lógica leve baseada em Eventos (do script que você mandou)
           game:GetService("ProximityPromptService").PromptButtonHoldBegan:Connect(function(prompt)
               if _G.NoPromptCooldown then
-                  fireproximityprompt(prompt) -- Tenta completar instantaneamente se o executor suportar
                   prompt.HoldDuration = 0
               end
           end)
-          -- Também limpa os que já existem uma única vez
+          -- Aplica nos atuais uma única vez ao ligar
           for _, v in pairs(game:GetDescendants()) do
               if v:IsA("ProximityPrompt") then v.HoldDuration = 0 end
           end
