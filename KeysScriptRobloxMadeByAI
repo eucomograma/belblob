@@ -1,12 +1,12 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "KEYS 🔑 | Manus Hub",
-   LoadingTitle = "Otimizando Sistemas...",
-   LoadingSubtitle = "por Manus AI",
+   Name = "KEYS 🔑 |,
+   LoadingTitle = "Restaurando Estabilidade...",
+   LoadingSubtitle = "por um cara ai",
    ConfigurationSaving = {
       Enabled = true,
-      FolderName = "ManusHub",
+      FolderName = "Keys",
       FileName = "KeysConfig"
    }
 })
@@ -20,8 +20,7 @@ local Rainbow_ESP = false
 
 -- Função para Cor Rainbow
 local function GetRainbowColor()
-    local t = tick()
-    return Color3.fromHSV(t % 5 / 5, 1, 1)
+    return Color3.fromHSV(tick() % 5 / 5, 1, 1)
 end
 
 -- Funções Auxiliares para ESP (Chams)
@@ -40,9 +39,9 @@ local function ApplyChams(object, color)
     end
 end
 
--- Loop de Atualização Geral (Otimizado)
+-- Loop de Atualização de ESP (Otimizado)
 task.spawn(function()
-    while task.wait(0.1) do -- Frequência maior para o Rainbow ser fluido
+    while task.wait(0.1) do
         if ESP_Enabled then
             for _, player in pairs(game.Players:GetPlayers()) do
                 if player ~= game.Players.LocalPlayer and player.Character then
@@ -111,9 +110,7 @@ local TabESP = Window:CreateTab("Visuals (ESP)", 4483362458)
 TabESP:CreateToggle({
    Name = "ESP Colorido (Rainbow Mode)",
    CurrentValue = false,
-   Callback = function(Value)
-      Rainbow_ESP = Value
-   end,
+   Callback = function(Value) Rainbow_ESP = Value end,
 })
 
 TabESP:CreateSection("Jogadores")
@@ -144,22 +141,22 @@ TabESP:CreateColorPicker({
 local TabMisc = Window:CreateTab("Misc", 4483362458)
 
 TabMisc:CreateToggle({
-   Name = "No Prompt Cooldown (Sempre Ativo)",
+   Name = "No Prompt Cooldown (Zero Lag)",
    CurrentValue = false,
    Callback = function(Value)
       _G.NoPromptCooldown = Value
       if Value then
-          -- Loop em segundo plano para garantir que novos prompts sejam alterados instantaneamente
-          task.spawn(function()
-              while _G.NoPromptCooldown do
-                  for _, v in pairs(game:GetDescendants()) do
-                      if v:IsA("ProximityPrompt") and v.HoldDuration ~= 0 then
-                          v.HoldDuration = 0
-                      end
-                  end
-                  task.wait(0.5) -- Checa a cada meio segundo (muito leve)
+          -- Método de Alta Performance: Usa o serviço nativo de Prompts
+          game:GetService("ProximityPromptService").PromptButtonHoldBegan:Connect(function(prompt)
+              if _G.NoPromptCooldown then
+                  fireproximityprompt(prompt) -- Tenta completar instantaneamente se o executor suportar
+                  prompt.HoldDuration = 0
               end
           end)
+          -- Também limpa os que já existem uma única vez
+          for _, v in pairs(game:GetDescendants()) do
+              if v:IsA("ProximityPrompt") then v.HoldDuration = 0 end
+          end
       end
    end,
 })
