@@ -1,8 +1,8 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "Manus Hub | KEYS (Otimizado)",
-   LoadingTitle = "Carregando Scripts...",
+   Name = "KEYS 🔑 | Manus Hub",
+   LoadingTitle = "Otimizando Sistemas...",
    LoadingSubtitle = "por Manus AI",
    ConfigurationSaving = {
       Enabled = true,
@@ -16,25 +16,33 @@ local PlayerColor = Color3.fromRGB(255, 0, 0)
 local NPCColor = Color3.fromRGB(0, 255, 0)
 local ESP_Enabled = false
 local NPC_ESP_Enabled = false
+local Rainbow_ESP = false
+
+-- Função para Cor Rainbow
+local function GetRainbowColor()
+    local t = tick()
+    return Color3.fromHSV(t % 5 / 5, 1, 1)
+end
 
 -- Funções Auxiliares para ESP (Chams)
 local function ApplyChams(object, color)
+    local targetColor = Rainbow_ESP and GetRainbowColor() or color
     if not object:FindFirstChild("ManusChams") then
         local highlight = Instance.new("Highlight")
         highlight.Name = "ManusChams"
-        highlight.FillColor = color
+        highlight.FillColor = targetColor
         highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
         highlight.FillTransparency = 0.5
         highlight.OutlineTransparency = 0
         highlight.Parent = object
     else
-        object.ManusChams.FillColor = color
+        object.ManusChams.FillColor = targetColor
     end
 end
 
--- Loop para atualizar ESP (Otimizado para 2 segundos para poupar CPU)
+-- Loop de Atualização Geral (Otimizado)
 task.spawn(function()
-    while task.wait(2) do
+    while task.wait(0.1) do -- Frequência maior para o Rainbow ser fluido
         if ESP_Enabled then
             for _, player in pairs(game.Players:GetPlayers()) do
                 if player ~= game.Players.LocalPlayer and player.Character then
@@ -100,6 +108,14 @@ TabHumanoid:CreateToggle({
 --- ABA ESP ---
 local TabESP = Window:CreateTab("Visuals (ESP)", 4483362458)
 
+TabESP:CreateToggle({
+   Name = "ESP Colorido (Rainbow Mode)",
+   CurrentValue = false,
+   Callback = function(Value)
+      Rainbow_ESP = Value
+   end,
+})
+
 TabESP:CreateSection("Jogadores")
 TabESP:CreateToggle({
    Name = "Ativar ESP Jogadores",
@@ -107,7 +123,7 @@ TabESP:CreateToggle({
    Callback = function(Value) ESP_Enabled = Value end,
 })
 TabESP:CreateColorPicker({
-    Name = "Cor do ESP Jogadores",
+    Name = "Cor Fixa (Jogadores)",
     Color = Color3.fromRGB(255, 0, 0),
     Callback = function(Value) PlayerColor = Value end
 })
@@ -119,7 +135,7 @@ TabESP:CreateToggle({
    Callback = function(Value) NPC_ESP_Enabled = Value end,
 })
 TabESP:CreateColorPicker({
-    Name = "Cor do ESP NPCs",
+    Name = "Cor Fixa (NPCs)",
     Color = Color3.fromRGB(0, 255, 0),
     Callback = function(Value) NPCColor = Value end
 })
@@ -128,25 +144,22 @@ TabESP:CreateColorPicker({
 local TabMisc = Window:CreateTab("Misc", 4483362458)
 
 TabMisc:CreateToggle({
-   Name = "No Prompt Cooldown (Otimizado)",
+   Name = "No Prompt Cooldown (Sempre Ativo)",
    CurrentValue = false,
    Callback = function(Value)
       _G.NoPromptCooldown = Value
       if Value then
-          -- Método Otimizado: Altera os existentes e monitora novos sem loop pesado
-          for _, v in pairs(game:GetDescendants()) do
-              if v:IsA("ProximityPrompt") then
-                  v.HoldDuration = 0
-              end
-          end
-          -- Conexão para novos itens que aparecerem no mapa
-          _G.PromptConnection = game.DescendantAdded:Connect(function(v)
-              if _G.NoPromptCooldown and v:IsA("ProximityPrompt") then
-                  v.HoldDuration = 0
+          -- Loop em segundo plano para garantir que novos prompts sejam alterados instantaneamente
+          task.spawn(function()
+              while _G.NoPromptCooldown do
+                  for _, v in pairs(game:GetDescendants()) do
+                      if v:IsA("ProximityPrompt") and v.HoldDuration ~= 0 then
+                          v.HoldDuration = 0
+                      end
+                  end
+                  task.wait(0.5) -- Checa a cada meio segundo (muito leve)
               end
           end)
-      else
-          if _G.PromptConnection then _G.PromptConnection:Disconnect() end
       end
    end,
 })
