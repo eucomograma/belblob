@@ -12,11 +12,12 @@ local ESP_Enabled = false
 local NPC_ESP_Enabled = false
 local NPC_Names_Enabled = false
 local Rainbow_ESP = false
-local Chams_Mode = "Fill" 
 local AnimSpeed_Enabled = false
 local AnimSpeed_Value = 1
 local Gravity_Enabled = false
 local Gravity_Value = 196
+local TPWalk_Enabled = false
+local TPWalk_Speed = 1
 
 local PlayerColor = Color3.fromRGB(255, 0, 0)
 local NPCColor = Color3.fromRGB(0, 255, 0)
@@ -53,7 +54,7 @@ local function UpdateBillboard(parent, text)
     end
 end
 
--- Gerenciador de Visuals
+-- Gerenciador de Visuals (Apenas Chams agora)
 local function ApplyVisuals(parent, color)
     local highlight = parent:FindFirstChild("ManusHighlight")
     if not highlight then
@@ -63,24 +64,28 @@ local function ApplyVisuals(parent, color)
     end
     
     local targetColor = Rainbow_ESP and GetRainbowColor() or color
-    
-    if Chams_Mode == "Outline" then
-        highlight.FillTransparency = 1
-        highlight.OutlineTransparency = 0
-        highlight.OutlineColor = targetColor
-    else
-        highlight.FillTransparency = 0.5
-        highlight.OutlineTransparency = 0
-        highlight.FillColor = targetColor
-        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-    end
+    highlight.FillColor = targetColor
+    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+    highlight.FillTransparency = 0.5
+    highlight.OutlineTransparency = 0
 end
 
 -- Loop Principal
 task.spawn(function()
-    while task.wait(0.1) do
+    while task.wait(0.05) do -- Loop mais rápido para TPWalk ser fluido
+        -- 1. TP Walk
+        if TPWalk_Enabled then
+            local char = game.Players.LocalPlayer.Character
+            local hum = char and char:FindFirstChild("Humanoid")
+            if hum and hum.MoveDirection.Magnitude > 0 then
+                char:TranslateBy(hum.MoveDirection * (TPWalk_Speed / 10))
+            end
+        end
+
+        -- 2. Gravidade
         workspace.Gravity = Gravity_Enabled and Gravity_Value or 196.2
         
+        -- 3. Velocidade de Animação
         pcall(function()
             local char = game.Players.LocalPlayer.Character
             if char and char:FindFirstChild("Humanoid") then
@@ -93,6 +98,7 @@ task.spawn(function()
             end
         end)
 
+        -- 4. ESP
         if not ESP_Enabled and not NPC_ESP_Enabled then
             for _, v in pairs(workspace:GetDescendants()) do
                 if v.Name == "ManusHighlight" or v.Name == "ManusESP" then v:Destroy() end
@@ -127,9 +133,26 @@ end)
 --- ABA HUMANOID ---
 local TabHumanoid = Window:CreateTab("👤 Humanoid", 4483362458)
 
+TabHumanoid:CreateSection("🏃 Movimentação (TP Walk)")
+TabHumanoid:CreateLabel("⚠️ Valores acima de 5 podem ser muito rápidos!")
+
+TabHumanoid:CreateToggle({
+   Name = "⚡ Ativar TP Walk",
+   CurrentValue = false,
+   Callback = function(Value) TPWalk_Enabled = Value end,
+})
+
+TabHumanoid:CreateSlider({
+   Name = "⏩ Velocidade TP",
+   Range = {1, 10},
+   Increment = 0.1,
+   CurrentValue = 1,
+   Callback = function(Value) TPWalk_Speed = Value end,
+})
+
 TabHumanoid:CreateSection("🎬 Animações")
 TabHumanoid:CreateToggle({
-   Name = "⚡ Ativar Velocidade",
+   Name = "🎭 Ativar Velocidade de Animação",
    CurrentValue = false,
    Callback = function(Value) AnimSpeed_Enabled = Value end,
 })
@@ -167,13 +190,6 @@ end})
 
 --- ABA ESP ---
 local TabESP = Window:CreateTab("👁️ Visuals", 4483362458)
-
-TabESP:CreateDropdown({
-   Name = "🎨 Modo Chams",
-   Options = {"Fill", "Outline"},
-   CurrentOption = "Fill",
-   Callback = function(Option) Chams_Mode = Option end,
-})
 
 TabESP:CreateToggle({Name = "🌈 Rainbow Mode", CurrentValue = false, Callback = function(Value) Rainbow_ESP = Value end})
 
