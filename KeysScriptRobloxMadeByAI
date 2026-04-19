@@ -1,14 +1,10 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "KEYS 🔑 | XD",
-   LoadingTitle = "Finalizando Script...",
-   LoadingSubtitle = "KEYS script",
-   ConfigurationSaving = {
-      Enabled = true,
-      FolderName = "Keys",
-      FileName = "KeysConfig"
-   }
+   Name = "KEYS 🔑 | Hub",
+   LoadingTitle = "Otimização Extrema...",
+   LoadingSubtitle = "por Bex",
+   ConfigurationSaving = {Enabled = true, FolderName = "KeysHub", FileName = "KeysConfig"}
 })
 
 -- Variáveis de Controle
@@ -25,47 +21,63 @@ local function GetRainbowColor()
     return Color3.fromHSV(tick() % 5 / 5, 1, 1)
 end
 
--- Funções Auxiliares para ESP (Chams)
-local function ApplyChams(object, color)
-    local targetColor = Rainbow_ESP and GetRainbowColor() or color
-    if not object:FindFirstChild("ManusChams") then
-        local highlight = Instance.new("Highlight")
-        highlight.Name = "ManusChams"
-        highlight.FillColor = targetColor
-        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-        highlight.FillTransparency = 0.5
-        highlight.OutlineTransparency = 0
-        highlight.Parent = object
-    else
-        object.ManusChams.FillColor = targetColor
+-- Função para Limpar Chams
+local function ClearAllChams()
+    for _, v in pairs(workspace:GetDescendants()) do
+        if v.Name == "ManusChams" then
+            v:Destroy()
+        end
     end
 end
 
--- Loop de Atualização (Otimizado para não dar lag)
+-- Funções Auxiliares para ESP (Chams)
+local function ApplyChams(object, color)
+    local targetColor = Rainbow_ESP and GetRainbowColor() or color
+    local highlight = object:FindFirstChild("ManusChams")
+    if not highlight then
+        highlight = Instance.new("Highlight")
+        highlight.Name = "ManusChams"
+        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+        highlight.FillTransparency = 0.5
+        highlight.Parent = object
+    end
+    highlight.FillColor = targetColor
+end
+
+-- Loop de Velocidade (Separado para ser instantâneo)
 task.spawn(function()
-    while task.wait(0.1) do
-        -- Forçar Velocidade (Só roda se o Toggle estiver ligado)
+    while task.wait() do
         if Speed_Enabled then
             local char = game.Players.LocalPlayer.Character
-            local hum = char and char:FindFirstChild("Humanoid")
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
             if hum then
                 hum.WalkSpeed = TargetSpeed
             end
         end
+    end
+end)
 
-        -- ESP
-        if ESP_Enabled then
-            for _, player in pairs(game.Players:GetPlayers()) do
-                if player ~= game.Players.LocalPlayer and player.Character then
-                    ApplyChams(player.Character, PlayerColor)
+-- Loop de ESP (Otimizado: Roda a cada 1 segundo para evitar lag)
+task.spawn(function()
+    while task.wait(1) do
+        if not ESP_Enabled and not NPC_ESP_Enabled then
+            -- Se ambos desligados, não faz nada (economiza CPU)
+        else
+            -- ESP Jogadores
+            if ESP_Enabled then
+                for _, player in pairs(game.Players:GetPlayers()) do
+                    if player ~= game.Players.LocalPlayer and player.Character then
+                        ApplyChams(player.Character, PlayerColor)
+                    end
                 end
             end
-        end
-        
-        if NPC_ESP_Enabled then
-            for _, obj in pairs(workspace:GetDescendants()) do
-                if obj:IsA("Humanoid") and obj.Parent and not game.Players:GetPlayerFromCharacter(obj.Parent) then
-                    ApplyChams(obj.Parent, NPCColor)
+            
+            -- ESP NPCs (Busca apenas por modelos com Humanoid)
+            if NPC_ESP_Enabled then
+                for _, obj in pairs(workspace:GetChildren()) do -- GetChildren é MUITO mais leve que GetDescendants
+                    if obj:IsA("Model") and obj:FindFirstChildOfClass("Humanoid") and not game.Players:GetPlayerFromCharacter(obj) then
+                        ApplyChams(obj, NPCColor)
+                    end
                 end
             end
         end
@@ -75,28 +87,26 @@ end)
 --- ABA HUMANOID ---
 local TabHumanoid = Window:CreateTab("Humanoid", 4483362458)
 
-TabHumanoid:CreateSection("Velocidade")
-
 TabHumanoid:CreateToggle({
-   Name = "Ativar Velocidade Customizada",
+   Name = "Ativar Velocidade Forçada",
    CurrentValue = false,
    Callback = function(Value)
       Speed_Enabled = Value
+      if not Value then
+          local hum = game.Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+          if hum then hum.WalkSpeed = 16 end
+      end
    end,
 })
 
 TabHumanoid:CreateSlider({
-   Name = "Ajustar Velocidade",
+   Name = "Velocidade",
    Range = {16, 300},
    Increment = 1,
    Suffix = " Speed",
    CurrentValue = 16,
-   Callback = function(Value)
-      TargetSpeed = Value
-   end,
+   Callback = function(Value) TargetSpeed = Value end,
 })
-
-TabHumanoid:CreateSection("Outros")
 
 TabHumanoid:CreateToggle({
    Name = "Pulo Infinito",
@@ -139,45 +149,34 @@ TabESP:CreateSection("Jogadores")
 TabESP:CreateToggle({
    Name = "Ativar ESP Jogadores",
    CurrentValue = false,
-   Callback = function(Value) ESP_Enabled = Value end,
-})
-TabESP:CreateColorPicker({
-    Name = "Cor Fixa (Jogadores)",
-    Color = Color3.fromRGB(255, 0, 0),
-    Callback = function(Value) PlayerColor = Value end
+   Callback = function(Value) 
+      ESP_Enabled = Value 
+      if not Value then ClearAllChams() end
+   end,
 })
 
 TabESP:CreateSection("NPCs")
 TabESP:CreateToggle({
    Name = "Ativar ESP NPCs",
    CurrentValue = false,
-   Callback = function(Value) NPC_ESP_Enabled = Value end,
-})
-TabESP:CreateColorPicker({
-    Name = "Cor Fixa (NPCs)",
-    Color = Color3.fromRGB(0, 255, 0),
-    Callback = function(Value) NPCColor = Value end
+   Callback = function(Value) 
+      NPC_ESP_Enabled = Value 
+      if not Value then ClearAllChams() end
+   end,
 })
 
 --- ABA MISC ---
 local TabMisc = Window:CreateTab("Misc", 4483362458)
 
 TabMisc:CreateToggle({
-   Name = "No Prompt Cooldown (Zero Lag)",
+   Name = "No Prompt Cooldown",
    CurrentValue = false,
    Callback = function(Value)
       _G.NoPromptCooldown = Value
       if Value then
-          -- Lógica leve baseada em Eventos (do script que você mandou)
-          game:GetService("ProximityPromptService").PromptButtonHoldBegan:Connect(function(prompt)
-              if _G.NoPromptCooldown then
-                  prompt.HoldDuration = 0
-              end
+          game:GetService("ProximityPromptService").PromptButtonHoldBegan:Connect(function(p)
+              if _G.NoPromptCooldown then p.HoldDuration = 0 end
           end)
-          -- Aplica nos atuais uma única vez ao ligar
-          for _, v in pairs(game:GetDescendants()) do
-              if v:IsA("ProximityPrompt") then v.HoldDuration = 0 end
-          end
       end
    end,
 })
