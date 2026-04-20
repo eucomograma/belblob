@@ -1,6 +1,6 @@
--- Script Lua/Roblox Otimizado (NPC ESP com lógica original e otimizações)
+-- Script Lua/Roblox Otimizado (NPC ESP com HP, Nome, Distância e Eventos)
 
-local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
     Name = "KEYS 🔑 | 🛠️✨",
@@ -25,6 +25,8 @@ local NPCColor = Color3.fromRGB(0, 255, 0)
 -- Cache para objetos e highlights/billboards criados para otimização de remoção
 local activeHighlights = {}
 local activeBillboards = {}
+local activeHealthBillboards = {}
+local healthConnections = {}
 
 -- Função Rainbow (calculada uma vez por frame para múltiplos usos)
 local currentRainbowColor = Color3.fromRGB(255, 0, 0) -- Valor inicial
@@ -32,52 +34,14 @@ local function UpdateRainbowColor()
     currentRainbowColor = Color3.fromHSV(tick() % 5 / 5, 1, 1)
 end
 
--- Função para criar/atualizar Billboard (Nome e Distância)
-local function UpdateBillboard(parent, text, color)
-    local head = parent:FindFirstChild("Head")
-    if head then
-        local billboard = activeBillboards[parent] -- Tenta obter do cache
-        if not billboard or not billboard.Parent then
-            billboard = Instance.new("BillboardGui")
-            billboard.Name = "ManusESP"
-            billboard.Size = UDim2.new(0, 200, 0, 50)
-            billboard.Adornee = head
-            billboard.AlwaysOnTop = true
-            billboard.StudsOffset = Vector3.new(0, 3, 0)
-            
-            local label = Instance.new("TextLabel")
-            label.Parent = billboard
-            label.BackgroundTransparency = 1
-            label.Size = UDim2.new(1, 0, 1, 0)
-            label.Font = Enum.Font.SourceSansBold
-            label.TextSize = 14
-            label.TextStrokeTransparency = 0
-            label.TextColor3 = Color3.new(1, 1, 1)
-            billboard.Parent = head
-            activeBillboards[parent] = billboard -- Adiciona ao cache
-        end
-        billboard.TextLabel.Text = text
-        billboard.TextLabel.TextColor3 = color -- Aplica a cor do ESP ao texto
-    end
-end
-
--- Função para remover Billboard
-local function RemoveBillboard(parent)
-    local billboard = activeBillboards[parent]
-    if billboard and billboard.Parent then
-        billboard:Destroy()
-        activeBillboards[parent] = nil
-    end
-end
-
--- Gerenciador de Visuals (agora focado apenas em NPCs)
+-- Gerenciador de Visuals (Highlight)
 local function ApplyVisuals(parent, color)
-    local highlight = activeHighlights[parent] -- Tenta obter do cache
+    local highlight = activeHighlights[parent]
     if not highlight or not highlight.Parent then
         highlight = Instance.new("Highlight")
         highlight.Name = "ManusHighlight"
         highlight.Parent = parent
-        activeHighlights[parent] = highlight -- Adiciona ao cache
+        activeHighlights[parent] = highlight
     end
     
     local targetColor = Rainbow_ESP and currentRainbowColor or color
@@ -96,6 +60,123 @@ local function RemoveHighlight(parent)
     end
 end
 
+-- Função para criar/atualizar Billboard (Nome e Distância)
+local function UpdateNameDistanceBillboard(parent, text, color)
+    local head = parent:FindFirstChild("Head")
+    if head then
+        local billboard = activeBillboards[parent]
+        if not billboard or not billboard.Parent then
+            billboard = Instance.new("BillboardGui")
+            billboard.Name = "ManusESP"
+            billboard.Size = UDim2.new(0, 200, 0, 50)
+            billboard.Adornee = head
+            billboard.AlwaysOnTop = true
+            billboard.StudsOffset = Vector3.new(0, 3, 0)
+            
+            local label = Instance.new("TextLabel")
+            label.Parent = billboard
+            label.BackgroundTransparency = 1
+            label.Size = UDim2.new(1, 0, 1, 0)
+            label.Font = Enum.Font.SourceSansBold
+            label.TextSize = 14
+            label.TextStrokeTransparency = 0
+            label.TextColor3 = Color3.new(1, 1, 1)
+            billboard.Parent = head
+            activeBillboards[parent] = billboard
+        end
+        billboard.TextLabel.Text = text
+        billboard.TextLabel.TextColor3 = color
+    end
+end
+
+-- Função para remover Billboard de Nome/Distância
+local function RemoveNameDistanceBillboard(parent)
+    local billboard = activeBillboards[parent]
+    if billboard and billboard.Parent then
+        billboard:Destroy()
+        activeBillboards[parent] = nil
+    end
+end
+
+-- NOVA LÓGICA DE NPC ESP COM HP (integrada e otimizada)
+local function setupNPC(humanoid)
+    local character = humanoid.Parent
+    if not character or game.Players:GetPlayerFromCharacter(character) then return end
+    
+    -- Gerencia o Highlight visual
+    if NPC_ESP_Enabled then
+        ApplyVisuals(character, NPCColor)
+    else
+        RemoveHighlight(character)
+    end
+
+    -- Gerencia o Billboard de Nome e Distância
+    local localPlayer = game.Players.LocalPlayer
+    local localCharacter = localPlayer.Character
+    if NPC_Names_Enabled and localCharacter and localCharacter:FindFirstChild("HumanoidRootPart") and character:FindFirstChild("HumanoidRootPart") then
+        local dist = math.floor((localCharacter.HumanoidRootPart.Position - character.HumanoidRootPart.Position).Magnitude)
+        UpdateNameDistanceBillboard(character, character.Name .. " [" .. dist .. "m]", NPCColor)
+    else
+        RemoveNameDistanceBillboard(character)
+    end
+
+    -- Gerencia o Billboard de HP
+    local healthBillboard = activeHealthBillboards[character]
+    if NPC_ESP_Enabled then -- Só cria o HP se o ESP estiver ativo
+        if not healthBillboard or not healthBillboard.Parent then
+            healthBillboard = Instance.new("BillboardGui")
+            healthBillboard.Name = "NPCHealthDisplay"
+            healthBillboard.Size = UDim2.new(4, 0, 1.5, 0)
+            healthBillboard.StudsOffset = Vector3.new(0, 2.5, 0)
+            healthBillboard.AlwaysOnTop = true
+            healthBillboard.Adornee = character:FindFirstChild("Head") or character.PrimaryPart or character:FindFirstChildWhichIsA("BasePart")
+            
+            local textLabel = Instance.new("TextLabel")
+            textLabel.Size = UDim2.new(1, 0, 1, 0)
+            textLabel.BackgroundTransparency = 1
+            textLabel.Text = "HP: " .. (humanoid.MaxHealth > 0 and math.floor(humanoid.Health) or 0)
+            textLabel.Font = Enum.Font.SourceSansBold
+            textLabel.TextSize = 18
+            textLabel.TextColor3 = Color3.new(1, 1, 1)
+            textLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+            textLabel.TextStrokeTransparency = 0.5
+            textLabel.Parent = healthBillboard
+            
+            healthBillboard.Parent = character
+            activeHealthBillboards[character] = healthBillboard
+        end
+
+        -- Conecta o evento de mudança de HP apenas uma vez
+        if not healthConnections[humanoid] then
+            healthConnections[humanoid] = humanoid:GetPropertyChangedSignal("Health"):Connect(function()
+                local hpText = "HP: " .. (humanoid.MaxHealth > 0 and math.floor(humanoid.Health) or 0)
+                if activeHealthBillboards[character] and activeHealthBillboards[character]:FindFirstChildOfClass("TextLabel") then
+                    activeHealthBillboards[character]:FindFirstChildOfClass("TextLabel").Text = hpText
+                end
+            end)
+        end
+    else
+        -- Remove o Billboard de HP e desconecta o evento se o ESP estiver desativado
+        local conn = healthConnections[humanoid]
+        if conn then conn:Disconnect(); healthConnections[humanoid] = nil end
+        local hb = activeHealthBillboards[character]
+        if hb and hb.Parent then hb:Destroy(); activeHealthBillboards[character] = nil end
+    end
+end
+
+-- Função para limpar todos os visuais de um personagem
+local function cleanupCharacterVisuals(character)
+    RemoveHighlight(character)
+    RemoveNameDistanceBillboard(character)
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        local conn = healthConnections[humanoid]
+        if conn then conn:Disconnect(); healthConnections[humanoid] = nil end
+    end
+    local hb = activeHealthBillboards[character]
+    if hb and hb.Parent then hb:Destroy(); activeHealthBillboards[character] = nil end
+end
+
 -- LOOP EXCLUSIVO PARA TP WALK (Alta Performance / Sem Lag)
 task.spawn(function()
     game:GetService("RunService").Heartbeat:Connect(function()
@@ -110,8 +191,22 @@ task.spawn(function()
     end)
 end)
 
--- Loop Secundário (Visuals e Mundo) - Otimizado para NPC ESP
+-- Loop Principal (Visuals e Mundo) - Otimizado com eventos e cache
 task.spawn(function()
+    -- Conecta DescendantAdded para novos humanoids
+    workspace.DescendantAdded:Connect(function(descendant)
+        if descendant:IsA("Humanoid") then
+            setupNPC(descendant)
+        end
+    end)
+
+    -- Conecta ChildRemoved para limpar visuais
+    workspace.ChildRemoved:Connect(function(child)
+        if child:IsA("Model") and not game.Players:GetPlayerFromCharacter(child) then
+            cleanupCharacterVisuals(child)
+        end
+    end)
+
     while task.wait(0.1) do
         -- Atualiza a cor do arco-íris uma vez por iteração se o modo estiver ativo
         if Rainbow_ESP then
@@ -134,42 +229,48 @@ task.spawn(function()
         end
 
         -- Gerenciamento de NPC ESP
-        if not NPC_ESP_Enabled then
-            -- Se NPC ESP não estiver ativo, remove todos os highlights e billboards ativos
-            for parent, highlight in pairs(activeHighlights) do
-                RemoveHighlight(parent)
-            end
-            for parent, billboard in pairs(activeBillboards) do
-                RemoveBillboard(parent)
+        if not NPC_ESP_Enabled and not NPC_Names_Enabled then
+            -- Se nenhum ESP estiver ativo, remove todos os highlights e billboards ativos
+            for parent, highlight in pairs(activeHighlights) do RemoveHighlight(parent) end
+            for parent, billboard in pairs(activeBillboards) do RemoveNameDistanceBillboard(parent) end
+            for parent, healthBillboard in pairs(activeHealthBillboards) do
+                local humanoid = parent:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    local conn = healthConnections[humanoid]
+                    if conn then conn:Disconnect(); healthConnections[humanoid] = nil end
+                end
+                if healthBillboard and healthBillboard.Parent then healthBillboard:Destroy(); activeHealthBillboards[parent] = nil end
             end
         else
-            local npcsToHighlight = {}
+            local npcsToProcess = {}
 
-            -- Lógica original do NPC ESP, mas com otimizações de cache
-            for _, v in pairs(workspace:GetDescendants()) do
-                if v:IsA("Humanoid") and v.Parent and not game.Players:GetPlayerFromCharacter(v.Parent) then
-                    local npcModel = v.Parent
-                    npcsToHighlight[npcModel] = true
-                    ApplyVisuals(npcModel, NPCColor)
-                    
-                    if NPC_Names_Enabled and localCharacter and localCharacter:FindFirstChild("HumanoidRootPart") and npcModel:FindFirstChild("HumanoidRootPart") then
-                        local dist = math.floor((localCharacter.HumanoidRootPart.Position - npcModel.HumanoidRootPart.Position).Magnitude)
-                        UpdateBillboard(npcModel, npcModel.Name .. " [" .. dist .. "m]", NPCColor)
-                    else
-                        RemoveBillboard(npcModel)
+            -- Itera por todos os humanoids existentes no workspace para garantir que o setup seja aplicado
+            for _, descendant in pairs(workspace:GetDescendants()) do
+                if descendant:IsA("Humanoid") then
+                    local character = descendant.Parent
+                    if character and not game.Players:GetPlayerFromCharacter(character) then
+                        npcsToProcess[character] = true
+                        setupNPC(descendant) -- Aplica ou atualiza os visuais
                     end
                 end
             end
 
-            -- Remove highlights/billboards de entidades que não devem mais ter ESP
-            for parent, highlight in pairs(activeHighlights) do
-                if not npcsToHighlight[parent] then
-                    RemoveHighlight(parent)
-                end
+            -- Limpa visuais de NPCs que não existem mais ou não devem ter ESP
+            for parent, _ in pairs(activeHighlights) do
+                if not npcsToProcess[parent] then RemoveHighlight(parent) end
             end
-            for parent, billboard in pairs(activeBillboards) do
-                if not npcsToHighlight[parent] or not NPC_Names_Enabled then -- Remove se não for mais um NPC para highlight ou se o nome não estiver ativado
-                    RemoveBillboard(parent)
+            for parent, _ in pairs(activeBillboards) do
+                if not npcsToProcess[parent] then RemoveNameDistanceBillboard(parent) end
+            end
+            for parent, _ in pairs(activeHealthBillboards) do
+                if not npcsToProcess[parent] then
+                    local humanoid = parent:FindFirstChildOfClass("Humanoid")
+                    if humanoid then
+                        local conn = healthConnections[humanoid]
+                        if conn then conn:Disconnect(); healthConnections[humanoid] = nil end
+                    end
+                    local hb = activeHealthBillboards[parent]
+                    if hb and hb.Parent then hb:Destroy(); activeHealthBillboards[parent] = nil end
                 end
             end
         end
