@@ -1,10 +1,12 @@
+-- Script Lua/Roblox Otimizado
+
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "KEYS 🔑 | 🛠️✨",
-   LoadingTitle = "🚀 Otimizando Velocidade...",
-   LoadingSubtitle = "por Manus AI",
-   ConfigurationSaving = {Enabled = true, FolderName = "ManusHub", FileName = "KeysConfig"}
+    Name = "KEYS 🔑 | 🛠️✨",
+    LoadingTitle = "🚀 Otimizando Velocidade...",
+    LoadingSubtitle = "por unknown",
+    ConfigurationSaving = {Enabled = true, FolderName = "UnknownHub", FileName = "KeysConfig"}
 })
 
 -- Variáveis de Controle
@@ -22,17 +24,22 @@ local TPWalk_Speed = 1
 local PlayerColor = Color3.fromRGB(255, 0, 0)
 local NPCColor = Color3.fromRGB(0, 255, 0)
 
--- Função Rainbow
-local function GetRainbowColor()
-    return Color3.fromHSV(tick() % 5 / 5, 1, 1)
+-- Cache para objetos e highlights/billboards criados para otimização de remoção
+local activeHighlights = {}
+local activeBillboards = {}
+
+-- Função Rainbow (calculada uma vez por frame para múltiplos usos)
+local currentRainbowColor = Color3.fromRGB(255, 0, 0) -- Valor inicial
+local function UpdateRainbowColor()
+    currentRainbowColor = Color3.fromHSV(tick() % 5 / 5, 1, 1)
 end
 
 -- Função para criar/atualizar Billboard (Nome e Distância)
-local function UpdateBillboard(parent, text)
+local function UpdateBillboard(parent, text, color)
     local head = parent:FindFirstChild("Head")
     if head then
-        local billboard = head:FindFirstChild("ManusESP")
-        if not billboard then
+        local billboard = activeBillboards[parent] -- Tenta obter do cache
+        if not billboard or not billboard.Parent then
             billboard = Instance.new("BillboardGui")
             billboard.Name = "ManusESP"
             billboard.Size = UDim2.new(0, 200, 0, 50)
@@ -49,25 +56,46 @@ local function UpdateBillboard(parent, text)
             label.TextStrokeTransparency = 0
             label.TextColor3 = Color3.new(1, 1, 1)
             billboard.Parent = head
+            activeBillboards[parent] = billboard -- Adiciona ao cache
         end
         billboard.TextLabel.Text = text
+        billboard.TextLabel.TextColor3 = color -- Aplica a cor do ESP ao texto
+    end
+end
+
+-- Função para remover Billboard
+local function RemoveBillboard(parent)
+    local billboard = activeBillboards[parent]
+    if billboard and billboard.Parent then
+        billboard:Destroy()
+        activeBillboards[parent] = nil
     end
 end
 
 -- Gerenciador de Visuals
 local function ApplyVisuals(parent, color)
-    local highlight = parent:FindFirstChild("ManusHighlight")
-    if not highlight then
+    local highlight = activeHighlights[parent] -- Tenta obter do cache
+    if not highlight or not highlight.Parent then
         highlight = Instance.new("Highlight")
         highlight.Name = "ManusHighlight"
         highlight.Parent = parent
+        activeHighlights[parent] = highlight -- Adiciona ao cache
     end
     
-    local targetColor = Rainbow_ESP and GetRainbowColor() or color
+    local targetColor = Rainbow_ESP and currentRainbowColor or color
     highlight.FillColor = targetColor
     highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
     highlight.FillTransparency = 0.5
     highlight.OutlineTransparency = 0
+end
+
+-- Função para remover Highlight
+local function RemoveHighlight(parent)
+    local highlight = activeHighlights[parent]
+    if highlight and highlight.Parent then
+        highlight:Destroy()
+        activeHighlights[parent] = nil
+    end
 end
 
 -- LOOP EXCLUSIVO PARA TP WALK (Alta Performance / Sem Lag)
@@ -84,48 +112,81 @@ task.spawn(function()
     end)
 end)
 
--- Loop Secundário (Visuals e Mundo)
+-- Loop Secundário (Visuals e Mundo) - Otimizado
 task.spawn(function()
     while task.wait(0.1) do
+        -- Atualiza a cor do arco-íris uma vez por iteração se o modo estiver ativo
+        if Rainbow_ESP then
+            UpdateRainbowColor()
+        end
+
         workspace.Gravity = Gravity_Enabled and Gravity_Value or 196.2
         
-        pcall(function()
-            local char = game.Players.LocalPlayer.Character
-            if char and char:FindFirstChild("Humanoid") then
-                local animator = char.Humanoid:FindFirstChildOfClass("Animator")
-                if animator then
-                    for _, track in pairs(animator:GetPlayingAnimationTracks()) do
-                        track:AdjustSpeed(AnimSpeed_Enabled and AnimSpeed_Value or 1)
-                    end
+        local localPlayer = game.Players.LocalPlayer
+        local localCharacter = localPlayer.Character
+
+        -- Otimização de Animação
+        if localCharacter and localCharacter:FindFirstChild("Humanoid") then
+            local animator = localCharacter.Humanoid:FindFirstChildOfClass("Animator")
+            if animator then
+                for _, track in pairs(animator:GetPlayingAnimationTracks()) do
+                    track:AdjustSpeed(AnimSpeed_Enabled and AnimSpeed_Value or 1)
                 end
             end
-        end)
+        end
 
+        -- Gerenciamento de ESP
         if not ESP_Enabled and not NPC_ESP_Enabled then
-            for _, v in pairs(workspace:GetDescendants()) do
-                if v.Name == "ManusHighlight" or v.Name == "ManusESP" then v:Destroy() end
+            -- Se nenhum ESP estiver ativo, remove todos os highlights e billboards ativos
+            for parent, highlight in pairs(activeHighlights) do
+                RemoveHighlight(parent)
+            end
+            for parent, billboard in pairs(activeBillboards) do
+                RemoveBillboard(parent)
             end
         else
+            local playersToHighlight = {}
+            local npcsToHighlight = {}
+
+            -- Coleta jogadores para highlight
             if ESP_Enabled then
                 for _, p in pairs(game.Players:GetPlayers()) do
-                    if p ~= game.Players.LocalPlayer and p.Character then
+                    if p ~= localPlayer and p.Character then
+                        playersToHighlight[p.Character] = true
                         ApplyVisuals(p.Character, PlayerColor)
                     end
                 end
             end
+
+            -- Coleta NPCs para highlight (otimizado para evitar GetDescendants() repetido)
             if NPC_ESP_Enabled then
-                for _, v in pairs(workspace:GetDescendants()) do
-                    if v:IsA("Humanoid") and v.Parent and not game.Players:GetPlayerFromCharacter(v.Parent) then
-                        ApplyVisuals(v.Parent, NPCColor)
-                        if NPC_Names_Enabled then
-                            pcall(function()
-                                local dist = math.floor((game.Players.LocalPlayer.Character.HumanoidRootPart.Position - v.Parent.HumanoidRootPart.Position).Magnitude)
-                                UpdateBillboard(v.Parent, v.Parent.Name .. " [" .. dist .. "m]")
-                            end)
-                        elseif v.Parent:FindFirstChild("Head") and v.Parent.Head:FindFirstChild("ManusESP") then
-                            v.Parent.Head.ManusESP:Destroy()
+                -- Itera apenas pelos children do workspace, que geralmente são modelos ou pastas contendo NPCs
+                for _, child in pairs(workspace:GetChildren()) do
+                    if child:IsA("Model") then
+                        local humanoid = child:FindFirstChildOfClass("Humanoid")
+                        if humanoid and not game.Players:GetPlayerFromCharacter(child) then
+                            npcsToHighlight[child] = true
+                            ApplyVisuals(child, NPCColor)
+                            if NPC_Names_Enabled and localCharacter and localCharacter:FindFirstChild("HumanoidRootPart") and child:FindFirstChild("HumanoidRootPart") then
+                                local dist = math.floor((localCharacter.HumanoidRootPart.Position - child.HumanoidRootPart.Position).Magnitude)
+                                UpdateBillboard(child, child.Name .. " [" .. dist .. "m]", NPCColor)
+                            else
+                                RemoveBillboard(child)
+                            end
                         end
                     end
+                end
+            end
+
+            -- Remove highlights/billboards de entidades que não devem mais ter ESP
+            for parent, highlight in pairs(activeHighlights) do
+                if (ESP_Enabled and not playersToHighlight[parent]) or (NPC_ESP_Enabled and not npcsToHighlight[parent]) or (not ESP_Enabled and not NPC_ESP_Enabled) then
+                    RemoveHighlight(parent)
+                end
+            end
+            for parent, billboard in pairs(activeBillboards) do
+                if (NPC_Names_Enabled and not npcsToHighlight[parent]) or (not NPC_Names_Enabled) then
+                    RemoveBillboard(parent)
                 end
             end
         end
@@ -139,45 +200,45 @@ TabHumanoid:CreateSection("🏃 Movimentação (TP Walk)")
 TabHumanoid:CreateLabel("⚠️ Valores acima de 5 podem ser instáveis em alguns mapas!")
 
 TabHumanoid:CreateToggle({
-   Name = "⚡ Ativar TP Walk",
-   CurrentValue = false,
-   Callback = function(Value) TPWalk_Enabled = Value end,
+    Name = "⚡ Ativar TP Walk",
+    CurrentValue = false,
+    Callback = function(Value) TPWalk_Enabled = Value end,
 })
 
 TabHumanoid:CreateSlider({
-   Name = "⏩ Velocidade TP",
-   Range = {1, 30},
-   Increment = 0.5,
-   CurrentValue = 1,
-   Callback = function(Value) TPWalk_Speed = Value end,
+    Name = "⏩ Velocidade TP",
+    Range = {1, 30},
+    Increment = 0.5,
+    CurrentValue = 1,
+    Callback = function(Value) TPWalk_Speed = Value end,
 })
 
 TabHumanoid:CreateSection("🎬 Animações")
 TabHumanoid:CreateToggle({
-   Name = "🎭 Ativar Velocidade de Animação",
-   CurrentValue = false,
-   Callback = function(Value) AnimSpeed_Enabled = Value end,
+    Name = "🎭 Ativar Velocidade de Animação",
+    CurrentValue = false,
+    Callback = function(Value) AnimSpeed_Enabled = Value end,
 })
 TabHumanoid:CreateSlider({
-   Name = "⏩ Ajuste",
-   Range = {0, 10},
-   Increment = 0.1,
-   CurrentValue = 1,
-   Callback = function(Value) AnimSpeed_Value = Value end,
+    Name = "⏩ Ajuste",
+    Range = {0, 10},
+    Increment = 0.1,
+    CurrentValue = 1,
+    Callback = function(Value) AnimSpeed_Value = Value end,
 })
 
 TabHumanoid:CreateSection("🌍 Mundo")
 TabHumanoid:CreateToggle({
-   Name = "🌌 Gravidade Custom",
-   CurrentValue = false,
-   Callback = function(Value) Gravity_Enabled = Value end,
+    Name = "🌌 Gravidade Custom",
+    CurrentValue = false,
+    Callback = function(Value) Gravity_Enabled = Value end,
 })
 TabHumanoid:CreateSlider({
-   Name = "📉 Valor",
-   Range = {0, 196},
-   Increment = 1,
-   CurrentValue = 196,
-   Callback = function(Value) Gravity_Value = Value end,
+    Name = "📉 Valor",
+    Range = {0, 196},
+    Increment = 1,
+    CurrentValue = 196,
+    Callback = function(Value) Gravity_Value = Value end,
 })
 
 TabHumanoid:CreateSection("🎭 Ações")
@@ -205,16 +266,16 @@ TabESP:CreateToggle({Name = "📝 Nome & Distância", CurrentValue = false, Call
 --- ABA MISC ---
 local TabMisc = Window:CreateTab("⚙️ Misc", 4483362458)
 TabMisc:CreateToggle({
-   Name = "🖱️ No Prompt Cooldown",
-   CurrentValue = false,
-   Callback = function(Value)
-      _G.NoPromptCooldown = Value
-      if Value then
-          game:GetService("ProximityPromptService").PromptButtonHoldBegan:Connect(function(p)
-              if _G.NoPromptCooldown then p.HoldDuration = 0 end
-          end)
-      end
-   end,
+    Name = "🖱️ No Prompt Cooldown",
+    CurrentValue = false,
+    Callback = function(Value)
+        _G.NoPromptCooldown = Value
+        if Value then
+            game:GetService("ProximityPromptService").PromptButtonHoldBegan:Connect(function(p)
+                if _G.NoPromptCooldown then p.HoldDuration = 0 end
+            end)
+        end
+    end,
 })
 
 Rayfield:LoadConfiguration()
