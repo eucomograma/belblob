@@ -11,6 +11,11 @@ local Window = Rayfield:CreateWindow({
    }
 })
 
+-- Variáveis de Cores Globais
+_G.NPCFixoColor = Color3.fromRGB(255, 0, 0)
+_G.PlayerOutlineColor = Color3.fromRGB(255, 255, 255)
+_G.NPCOutlineColor = Color3.fromRGB(255, 255, 255)
+
 -- Abas
 local HumanoidTab = Window:CreateTab("Humanoid", 4483362458)
 local Esptab = Window:CreateTab("Visual/ESP", 4483345998)
@@ -65,12 +70,14 @@ HumanoidTab:CreateToggle({
 })
 
 ---
--- ABA ESP (NPCs)
+-- ABA ESP
 ---
 
--- Toggle para o Highlight Normal
+-- SEÇÃO: NPC HIGHLIGHT FIXO
+Esptab:CreateSection("NPC Highlight (Preenchido)")
+
 Esptab:CreateToggle({
-   Name = "NPC Highlight (Fixo)",
+   Name = "Ativar NPC Highlight (Fixo)",
    CurrentValue = false,
    Callback = function(Value)
       _G.NPCHighlight = Value
@@ -78,48 +85,129 @@ Esptab:CreateToggle({
          while _G.NPCHighlight do
             for _, v in pairs(workspace:GetDescendants()) do
                if v:IsA("Model") and v:FindFirstChild("Humanoid") and not game.Players:GetPlayerFromCharacter(v) then
-                  if not v:FindFirstChild("Highlight") then
-                     local hl = Instance.new("Highlight", v)
-                     hl.FillColor = Color3.fromRGB(255, 0, 0)
+                  local hl = v:FindFirstChild("HighlightFixo")
+                  if not hl then
+                     hl = Instance.new("Highlight")
+                     hl.Name = "HighlightFixo"
+                     hl.Parent = v
                   end
+                  hl.FillColor = _G.NPCFixoColor
+                  hl.OutlineColor = _G.NPCFixoColor
+                  hl.FillTransparency = 0.5
                end
             end
             task.wait(1)
          end
          if not _G.NPCHighlight then
             for _, v in pairs(workspace:GetDescendants()) do
-               if v:IsA("Highlight") then v:Destroy() end
+               if v.Name == "HighlightFixo" then v:Destroy() end
             end
          end
       end)
    end,
 })
 
--- NOVO: Rainbow Highlights
+Esptab:CreateColorPicker({
+    Name = "Cor do NPC Highlight",
+    Color = _G.NPCFixoColor,
+    Callback = function(Value)
+        _G.NPCFixoColor = Value
+    end
+})
+
+-- SEÇÃO: PLAYER OUTLINE
+Esptab:CreateSection("Player Outline (Apenas Borda)")
+
 Esptab:CreateToggle({
-   Name = "Rainbow Highlights",
+   Name = "Ativar Player Outline",
    CurrentValue = false,
    Callback = function(Value)
-      _G.RainbowESP = Value
+      _G.PlayerOutline = Value
       task.spawn(function()
-         local counter = 0
-         while _G.RainbowESP do
-            local color = Color3.fromHSV(counter, 1, 1)
-            for _, v in pairs(workspace:GetDescendants()) do
-               if v:IsA("Highlight") then
-                  v.FillColor = color
-                  v.OutlineColor = color
+         while _G.PlayerOutline do
+            for _, p in pairs(game.Players:GetPlayers()) do
+               if p ~= game.Players.LocalPlayer and p.Character then
+                  local hl = p.Character:FindFirstChild("OutlinePlayer")
+                  if not hl then
+                     hl = Instance.new("Highlight")
+                     hl.Name = "OutlinePlayer"
+                     hl.Parent = p.Character
+                  end
+                  hl.FillTransparency = 1
+                  hl.OutlineColor = _G.PlayerOutlineColor
+                  hl.OutlineTransparency = 0
+                  hl.Adornee = p.Character
+                  hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
                end
             end
-            counter = counter + 0.01
-            if counter >= 1 then counter = 0 end
-            task.wait(0.05)
+            task.wait(1)
+         end
+         if not _G.PlayerOutline then
+            for _, p in pairs(game.Players:GetPlayers()) do
+               if p.Character and p.Character:FindFirstChild("OutlinePlayer") then
+                  p.Character.OutlinePlayer:Destroy()
+               end
+            end
          end
       end)
    end,
 })
 
--- NOVO: Distância dos NPCs
+Esptab:CreateColorPicker({
+    Name = "Cor do Player Outline",
+    Color = _G.PlayerOutlineColor,
+    Callback = function(Value)
+        _G.PlayerOutlineColor = Value
+    end
+})
+
+-- SEÇÃO: NPC OUTLINE
+Esptab:CreateSection("NPC Outline (Apenas Borda)")
+
+Esptab:CreateToggle({
+   Name = "Ativar NPC Outline",
+   CurrentValue = false,
+   Callback = function(Value)
+      _G.NPCOutline = Value
+      task.spawn(function()
+         while _G.NPCOutline do
+            for _, v in pairs(workspace:GetDescendants()) do
+               if v:IsA("Model") and v:FindFirstChild("Humanoid") and not game.Players:GetPlayerFromCharacter(v) then
+                  local hl = v:FindFirstChild("OutlineNPC")
+                  if not hl then
+                     hl = Instance.new("Highlight")
+                     hl.Name = "OutlineNPC"
+                     hl.Parent = v
+                  end
+                  hl.FillTransparency = 1
+                  hl.OutlineColor = _G.NPCOutlineColor
+                  hl.OutlineTransparency = 0
+                  hl.Adornee = v
+                  hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+               end
+            end
+            task.wait(1)
+         end
+         if not _G.NPCOutline then
+            for _, v in pairs(workspace:GetDescendants()) do
+               if v.Name == "OutlineNPC" then v:Destroy() end
+            end
+         end
+      end)
+   end,
+})
+
+Esptab:CreateColorPicker({
+    Name = "Cor do NPC Outline",
+    Color = _G.NPCOutlineColor,
+    Callback = function(Value)
+        _G.NPCOutlineColor = Value
+    end
+})
+
+-- SEÇÃO: DISTÂNCIA
+Esptab:CreateSection("Outros")
+
 Esptab:CreateToggle({
    Name = "NPC Distance ESP",
    CurrentValue = false,
