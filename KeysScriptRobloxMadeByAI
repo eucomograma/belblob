@@ -11,73 +11,32 @@ local Window = Rayfield:CreateWindow({
    }
 })
 
-local MainTab = Window:CreateTab("Principal", 4483362458) -- Ícone de exemplo
+-- Abas
+local HumanoidTab = Window:CreateTab("Humanoid", 4483362458)
+local Esptab = Window:CreateTab("Visual/ESP", 4483345998)
+local MiscTab = Window:CreateTab("Misc", 4483362458)
 
 ---
--- 1. NPC HIGHLIGHT (ESP)
+-- ABA HUMANOID
 ---
-MainTab:CreateToggle({
-   Name = "NPC Highlight (ESP)",
-   CurrentValue = false,
-   Callback = function(Value)
-      _G.NPCHighlight = Value
-      while _G.NPCHighlight do
-         for _, v in pairs(workspace:GetDescendants()) do
-            if v:IsA("Model") and v:FindFirstChild("Humanoid") and not game.Players:GetPlayerFromCharacter(v) then
-               if not v:FindFirstChild("Highlight") then
-                  local hl = Instance.new("Highlight", v)
-                  hl.FillColor = Color3.fromRGB(255, 0, 0)
-                  hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-               end
-            end
-         end
-         task.wait(2)
-      end
-      if not Value then
-         for _, v in pairs(workspace:GetDescendants()) do
-            if v:IsA("Highlight") then v:Destroy() end
-         end
-      end
-   end,
-})
-
----
--- 2. NO COOLDOWN PROXIMITY PROMPT
----
-MainTab:CreateToggle({
-   Name = "Instant Proximity Prompt",
-   CurrentValue = false,
-   Callback = function(Value)
-      _G.InstantPrompt = Value
-      game:GetService("ProximityPromptService").PromptButtonHoldBegan:Connect(function(prompt)
-         if _G.InstantPrompt then
-            fireproximityprompt(prompt)
-         end
-      end)
-   end,
-})
-
----
--- 3. INFINITE JUMP
----
-MainTab:CreateToggle({
+HumanoidTab:CreateToggle({
    Name = "Infinite Jump",
    CurrentValue = false,
    Callback = function(Value)
       _G.InfJump = Value
       game:GetService("UserInputService").JumpRequest:Connect(function()
          if _G.InfJump then
-            game.Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
+            local char = game.Players.LocalPlayer.Character
+            if char and char:FindFirstChildOfClass("Humanoid") then
+               char:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
+            end
          end
       end)
    end,
 })
 
----
--- 4. TP WALK (Velocidade via Teleporte)
----
 local TPWalkSpeed = 1
-MainTab:CreateSlider({
+HumanoidTab:CreateSlider({
    Name = "TPWalk Speed",
    Range = {1, 50},
    Increment = 1,
@@ -88,7 +47,7 @@ MainTab:CreateSlider({
    end,
 })
 
-MainTab:CreateToggle({
+HumanoidTab:CreateToggle({
    Name = "Ativar TPWalk",
    CurrentValue = false,
    Callback = function(Value)
@@ -96,10 +55,127 @@ MainTab:CreateToggle({
       game:GetService("RunService").Stepped:Connect(function()
          if _G.TPWalk then
             local char = game.Players.LocalPlayer.Character
-            local hum = char:FindFirstChildOfClass("Humanoid")
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
             if char and hum and hum.MoveDirection.Magnitude > 0 then
                char:TranslateBy(hum.MoveDirection * TPWalkSpeed / 10)
             end
+         end
+      end)
+   end,
+})
+
+---
+-- ABA ESP (NPCs)
+---
+
+-- Toggle para o Highlight Normal
+Esptab:CreateToggle({
+   Name = "NPC Highlight (Fixo)",
+   CurrentValue = false,
+   Callback = function(Value)
+      _G.NPCHighlight = Value
+      task.spawn(function()
+         while _G.NPCHighlight do
+            for _, v in pairs(workspace:GetDescendants()) do
+               if v:IsA("Model") and v:FindFirstChild("Humanoid") and not game.Players:GetPlayerFromCharacter(v) then
+                  if not v:FindFirstChild("Highlight") then
+                     local hl = Instance.new("Highlight", v)
+                     hl.FillColor = Color3.fromRGB(255, 0, 0)
+                  end
+               end
+            end
+            task.wait(1)
+         end
+         if not _G.NPCHighlight then
+            for _, v in pairs(workspace:GetDescendants()) do
+               if v:IsA("Highlight") then v:Destroy() end
+            end
+         end
+      end)
+   end,
+})
+
+-- NOVO: Rainbow Highlights
+Esptab:CreateToggle({
+   Name = "Rainbow Highlights",
+   CurrentValue = false,
+   Callback = function(Value)
+      _G.RainbowESP = Value
+      task.spawn(function()
+         local counter = 0
+         while _G.RainbowESP do
+            local color = Color3.fromHSV(counter, 1, 1)
+            for _, v in pairs(workspace:GetDescendants()) do
+               if v:IsA("Highlight") then
+                  v.FillColor = color
+                  v.OutlineColor = color
+               end
+            end
+            counter = counter + 0.01
+            if counter >= 1 then counter = 0 end
+            task.wait(0.05)
+         end
+      end)
+   end,
+})
+
+-- NOVO: Distância dos NPCs
+Esptab:CreateToggle({
+   Name = "NPC Distance ESP",
+   CurrentValue = false,
+   Callback = function(Value)
+      _G.ShowDistance = Value
+      task.spawn(function()
+         while _G.ShowDistance do
+            local lp = game.Players.LocalPlayer
+            for _, v in pairs(workspace:GetDescendants()) do
+               if v:IsA("Model") and v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart") and not game.Players:GetPlayerFromCharacter(v) then
+                  local hrp = v.HumanoidRootPart
+                  local bgui = hrp:FindFirstChild("DistanceGui")
+                  
+                  if not bgui then
+                     bgui = Instance.new("BillboardGui", hrp)
+                     bgui.Name = "DistanceGui"
+                     bgui.Size = UDim2.new(0, 200, 0, 50)
+                     bgui.AlwaysOnTop = true
+                     bgui.ExtentsOffset = Vector3.new(0, 3, 0)
+                     
+                     local lbl = Instance.new("TextLabel", bgui)
+                     lbl.Size = UDim2.new(1, 0, 1, 0)
+                     lbl.BackgroundTransparency = 1
+                     lbl.TextColor3 = Color3.new(1, 1, 1)
+                     lbl.TextStrokeTransparency = 0
+                     lbl.Font = Enum.Font.SourceSansBold
+                     lbl.TextSize = 14
+                  end
+                  
+                  local dist = (lp.Character.HumanoidRootPart.Position - hrp.Position).Magnitude
+                  bgui.TextLabel.Text = string.format("[ %.1f m ]", dist)
+               end
+            end
+            task.wait(0.1)
+         end
+         -- Limpar ao desligar
+         if not _G.ShowDistance then
+            for _, v in pairs(workspace:GetDescendants()) do
+               if v.Name == "DistanceGui" then v:Destroy() end
+            end
+         end
+      end)
+   end,
+})
+
+---
+-- ABA MISC
+---
+MiscTab:CreateToggle({
+   Name = "Instant Proximity Prompt",
+   CurrentValue = false,
+   Callback = function(Value)
+      _G.InstantPrompt = Value
+      game:GetService("ProximityPromptService").PromptButtonHoldBegan:Connect(function(prompt)
+         if _G.InstantPrompt then
+            fireproximityprompt(prompt)
          end
       end)
    end,
