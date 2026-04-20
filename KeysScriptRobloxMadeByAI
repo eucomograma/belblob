@@ -1,6 +1,6 @@
--- Script Lua/Roblox Otimizado
+-- Script Lua/Roblox Otimizado (Apenas NPC ESP com Distância)
 
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
 local Window = Rayfield:CreateWindow({
     Name = "KEYS 🔑 | 🛠️✨",
@@ -10,7 +10,6 @@ local Window = Rayfield:CreateWindow({
 })
 
 -- Variáveis de Controle
-local ESP_Enabled = false
 local NPC_ESP_Enabled = false
 local NPC_Names_Enabled = false
 local Rainbow_ESP = false
@@ -21,7 +20,6 @@ local Gravity_Value = 196
 local TPWalk_Enabled = false
 local TPWalk_Speed = 1
 
-local PlayerColor = Color3.fromRGB(255, 0, 0)
 local NPCColor = Color3.fromRGB(0, 255, 0)
 
 -- Cache para objetos e highlights/billboards criados para otimização de remoção
@@ -72,7 +70,7 @@ local function RemoveBillboard(parent)
     end
 end
 
--- Gerenciador de Visuals
+-- Gerenciador de Visuals (agora focado apenas em NPCs)
 local function ApplyVisuals(parent, color)
     local highlight = activeHighlights[parent] -- Tenta obter do cache
     if not highlight or not highlight.Parent then
@@ -112,7 +110,7 @@ task.spawn(function()
     end)
 end)
 
--- Loop Secundário (Visuals e Mundo) - Otimizado
+-- Loop Secundário (Visuals e Mundo) - Otimizado para NPC ESP
 task.spawn(function()
     while task.wait(0.1) do
         -- Atualiza a cor do arco-íris uma vez por iteração se o modo estiver ativo
@@ -135,9 +133,9 @@ task.spawn(function()
             end
         end
 
-        -- Gerenciamento de ESP
-        if not ESP_Enabled and not NPC_ESP_Enabled then
-            -- Se nenhum ESP estiver ativo, remove todos os highlights e billboards ativos
+        -- Gerenciamento de NPC ESP
+        if not NPC_ESP_Enabled then
+            -- Se NPC ESP não estiver ativo, remove todos os highlights e billboards ativos
             for parent, highlight in pairs(activeHighlights) do
                 RemoveHighlight(parent)
             end
@@ -145,34 +143,22 @@ task.spawn(function()
                 RemoveBillboard(parent)
             end
         else
-            local playersToHighlight = {}
             local npcsToHighlight = {}
 
-            -- Coleta jogadores para highlight
-            if ESP_Enabled then
-                for _, p in pairs(game.Players:GetPlayers()) do
-                    if p ~= localPlayer and p.Character then
-                        playersToHighlight[p.Character] = true
-                        ApplyVisuals(p.Character, PlayerColor)
-                    end
-                end
-            end
-
             -- Coleta NPCs para highlight (otimizado para evitar GetDescendants() repetido)
-            if NPC_ESP_Enabled then
-                -- Itera apenas pelos children do workspace, que geralmente são modelos ou pastas contendo NPCs
-                for _, child in pairs(workspace:GetChildren()) do
-                    if child:IsA("Model") then
-                        local humanoid = child:FindFirstChildOfClass("Humanoid")
-                        if humanoid and not game.Players:GetPlayerFromCharacter(child) then
-                            npcsToHighlight[child] = true
-                            ApplyVisuals(child, NPCColor)
-                            if NPC_Names_Enabled and localCharacter and localCharacter:FindFirstChild("HumanoidRootPart") and child:FindFirstChild("HumanoidRootPart") then
-                                local dist = math.floor((localCharacter.HumanoidRootPart.Position - child.HumanoidRootPart.Position).Magnitude)
-                                UpdateBillboard(child, child.Name .. " [" .. dist .. "m]", NPCColor)
-                            else
-                                RemoveBillboard(child)
-                            end
+            -- Itera apenas pelos children do workspace, que geralmente são modelos ou pastas contendo NPCs
+            for _, child in pairs(workspace:GetChildren()) do
+                if child:IsA("Model") then
+                    local humanoid = child:FindFirstChildOfClass("Humanoid")
+                    -- Verifica se é um NPC (tem Humanoid e não é um jogador)
+                    if humanoid and not game.Players:GetPlayerFromCharacter(child) then
+                        npcsToHighlight[child] = true
+                        ApplyVisuals(child, NPCColor)
+                        if NPC_Names_Enabled and localCharacter and localCharacter:FindFirstChild("HumanoidRootPart") and child:FindFirstChild("HumanoidRootPart") then
+                            local dist = math.floor((localCharacter.HumanoidRootPart.Position - child.HumanoidRootPart.Position).Magnitude)
+                            UpdateBillboard(child, child.Name .. " [" .. dist .. "m]", NPCColor)
+                        else
+                            RemoveBillboard(child)
                         end
                     end
                 end
@@ -180,12 +166,12 @@ task.spawn(function()
 
             -- Remove highlights/billboards de entidades que não devem mais ter ESP
             for parent, highlight in pairs(activeHighlights) do
-                if (ESP_Enabled and not playersToHighlight[parent]) or (NPC_ESP_Enabled and not npcsToHighlight[parent]) or (not ESP_Enabled and not NPC_ESP_Enabled) then
+                if not npcsToHighlight[parent] then
                     RemoveHighlight(parent)
                 end
             end
             for parent, billboard in pairs(activeBillboards) do
-                if (NPC_Names_Enabled and not npcsToHighlight[parent]) or (not NPC_Names_Enabled) then
+                if not npcsToHighlight[parent] or not NPC_Names_Enabled then -- Remove se não for mais um NPC para highlight ou se o nome não estiver ativado
                     RemoveBillboard(parent)
                 end
             end
@@ -256,8 +242,8 @@ local TabESP = Window:CreateTab("👁️ Visuals", 4483362458)
 
 TabESP:CreateToggle({Name = "🌈 Rainbow Mode", CurrentValue = false, Callback = function(Value) Rainbow_ESP = Value end})
 
-TabESP:CreateSection("👥 Jogadores")
-TabESP:CreateToggle({Name = "📍 ESP Players", CurrentValue = false, Callback = function(Value) ESP_Enabled = Value end})
+-- Removido: TabESP:CreateSection("👥 Jogadores")
+-- Removido: TabESP:CreateToggle({Name = "📍 ESP Players", CurrentValue = false, Callback = function(Value) ESP_Enabled = Value end})
 
 TabESP:CreateSection("👾 NPCs")
 TabESP:CreateToggle({Name = "🎯 ESP NPCs", CurrentValue = false, Callback = function(Value) NPC_ESP_Enabled = Value end})
@@ -266,7 +252,7 @@ TabESP:CreateToggle({Name = "📝 Nome & Distância", CurrentValue = false, Call
 --- ABA MISC ---
 local TabMisc = Window:CreateTab("⚙️ Misc", 4483362458)
 TabMisc:CreateToggle({
-    Name = "🖱️ No Prompt Cooldown",
+    Name = "🖱️ Open doors quickly",
     CurrentValue = false,
     Callback = function(Value)
         _G.NoPromptCooldown = Value
