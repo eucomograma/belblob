@@ -2,8 +2,8 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
    Name = "Exploit Hub | Rayfield Edition",
-   LoadingTitle = "Carregando Scripts...",
-   LoadingSubtitle = "por Bex",
+   LoadingTitle = "Loading Scripts...",
+   LoadingSubtitle = "by Bex",
    ConfigurationSaving = {
       Enabled = true,
       FolderName = "GeminiScripts",
@@ -11,18 +11,19 @@ local Window = Rayfield:CreateWindow({
    }
 })
 
--- Variáveis de Cores Globais
+-- Global Color Variables
 _G.NPCFixoColor = Color3.fromRGB(255, 0, 0)
 _G.PlayerOutlineColor = Color3.fromRGB(255, 255, 255)
 _G.NPCOutlineColor = Color3.fromRGB(255, 255, 255)
+_G.DoorESPColor = Color3.fromRGB(255, 0, 0) -- Default Red for Door
 
--- Abas
+-- Tabs
 local HumanoidTab = Window:CreateTab("Humanoid", 4483362458)
 local Esptab = Window:CreateTab("Visual/ESP", 4483345998)
 local MiscTab = Window:CreateTab("Misc", 4483362458)
 
 ---
--- ABA HUMANOID
+-- HUMANOID TAB
 ---
 HumanoidTab:CreateToggle({
    Name = "Infinite Jump",
@@ -53,7 +54,7 @@ HumanoidTab:CreateSlider({
 })
 
 HumanoidTab:CreateToggle({
-   Name = "Ativar TPWalk",
+   Name = "Enable TPWalk",
    CurrentValue = false,
    Callback = function(Value)
       _G.TPWalk = Value
@@ -70,14 +71,87 @@ HumanoidTab:CreateToggle({
 })
 
 ---
--- ABA ESP
+-- ESP TAB
 ---
 
--- SEÇÃO: NPC HIGHLIGHT FIXO
-Esptab:CreateSection("NPC Highlight (Preenchido)")
+-- SECTION: DOOR ESP (EXITROOT)
+Esptab:CreateSection("Door ESP (ExitRoot)")
 
 Esptab:CreateToggle({
-   Name = "Ativar NPC Highlight (Fixo)",
+   Name = "Enable Door ESP",
+   CurrentValue = false,
+   Callback = function(Value)
+      _G.DoorESP = Value
+      task.spawn(function()
+         while _G.DoorESP do
+            for _, obj in pairs(workspace:GetDescendants()) do
+               if obj.Name == "ExitRoot" and obj:IsA("BasePart") then
+                  -- Highlight
+                  local hl = obj:FindFirstChild("DoorHighlight")
+                  if not hl then
+                     hl = Instance.new("Highlight")
+                     hl.Name = "DoorHighlight"
+                     hl.Parent = obj
+                  end
+                  hl.FillColor = _G.DoorESPColor
+                  hl.OutlineColor = Color3.new(1, 1, 1)
+                  hl.FillTransparency = 0.5
+                  hl.OutlineTransparency = 0
+                  hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                  
+                  -- Billboard Distance
+                  local bgui = obj:FindFirstChild("DoorGui")
+                  if not bgui then
+                     bgui = Instance.new("BillboardGui", obj)
+                     bgui.Name = "DoorGui"
+                     bgui.Size = UDim2.new(0, 200, 0, 50)
+                     bgui.AlwaysOnTop = true
+                     bgui.StudsOffset = Vector3.new(0, 2, 0)
+                     
+                     local lbl = Instance.new("TextLabel", bgui)
+                     lbl.Size = UDim2.new(1, 0, 1, 0)
+                     lbl.BackgroundTransparency = 1
+                     lbl.TextColor3 = Color3.new(1, 1, 1)
+                     lbl.TextStrokeTransparency = 0
+                     lbl.Font = Enum.Font.SourceSansBold
+                     lbl.TextSize = 14
+                  end
+                  
+                  local lp = game.Players.LocalPlayer
+                  if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
+                     local dist = (lp.Character.HumanoidRootPart.Position - obj.Position).Magnitude
+                     bgui.TextLabel.Text = string.format("Door [%d studs]", math.floor(dist))
+                  end
+               end
+            end
+            task.wait(0.5)
+         end
+         -- Cleanup
+         if not _G.DoorESP then
+            for _, obj in pairs(workspace:GetDescendants()) do
+               if obj.Name == "ExitRoot" then
+                  if obj:FindFirstChild("DoorHighlight") then obj.DoorHighlight:Destroy() end
+                  if obj:FindFirstChild("DoorGui") then obj.DoorGui:Destroy() end
+               end
+            end
+         end
+      end)
+   end,
+})
+
+Esptab:CreateColorPicker({
+    Name = "Door ESP Color",
+    Color = _G.DoorESPColor,
+    Callback = function(Value)
+        _G.DoorESPColor = Value
+    end
+})
+
+-- SECTION: NPC HIGHLIGHT
+Esptab:CreateSection("NPC Highlight (Filled)")
+
+Esptab:CreateToggle({
+   Name = "Enable NPC Highlight (Fixed)",
    CurrentValue = false,
    Callback = function(Value)
       _G.NPCHighlight = Value
@@ -85,10 +159,10 @@ Esptab:CreateToggle({
          while _G.NPCHighlight do
             for _, v in pairs(workspace:GetDescendants()) do
                if v:IsA("Model") and v:FindFirstChild("Humanoid") and not game.Players:GetPlayerFromCharacter(v) then
-                  local hl = v:FindFirstChild("HighlightFixo")
+                  local hl = v:FindFirstChild("Highlight")
                   if not hl then
                      hl = Instance.new("Highlight")
-                     hl.Name = "HighlightFixo"
+                     hl.Name = "Highlight"
                      hl.Parent = v
                   end
                   hl.FillColor = _G.NPCFixoColor
@@ -100,7 +174,7 @@ Esptab:CreateToggle({
          end
          if not _G.NPCHighlight then
             for _, v in pairs(workspace:GetDescendants()) do
-               if v.Name == "HighlightFixo" then v:Destroy() end
+               if v.Name == "Highlight" then v:Destroy() end
             end
          end
       end)
@@ -108,18 +182,18 @@ Esptab:CreateToggle({
 })
 
 Esptab:CreateColorPicker({
-    Name = "Cor do NPC Highlight",
+    Name = "NPC Highlight Color",
     Color = _G.NPCFixoColor,
     Callback = function(Value)
         _G.NPCFixoColor = Value
     end
 })
 
--- SEÇÃO: PLAYER OUTLINE
-Esptab:CreateSection("Player Outline (Apenas Borda)")
+-- SECTION: PLAYER OUTLINE
+Esptab:CreateSection("Player Outline (Border Only)")
 
 Esptab:CreateToggle({
-   Name = "Ativar Player Outline",
+   Name = "Enable Player Outline",
    CurrentValue = false,
    Callback = function(Value)
       _G.PlayerOutline = Value
@@ -154,18 +228,18 @@ Esptab:CreateToggle({
 })
 
 Esptab:CreateColorPicker({
-    Name = "Cor do Player Outline",
+    Name = "Player Outline Color",
     Color = _G.PlayerOutlineColor,
     Callback = function(Value)
         _G.PlayerOutlineColor = Value
     end
 })
 
--- SEÇÃO: NPC OUTLINE
-Esptab:CreateSection("NPC Outline (Apenas Borda)")
+-- SECTION: NPC OUTLINE
+Esptab:CreateSection("NPC Outline (Border Only)")
 
 Esptab:CreateToggle({
-   Name = "Ativar NPC Outline",
+   Name = "Enable NPC Outline",
    CurrentValue = false,
    Callback = function(Value)
       _G.NPCOutline = Value
@@ -198,15 +272,15 @@ Esptab:CreateToggle({
 })
 
 Esptab:CreateColorPicker({
-    Name = "Cor do NPC Outline",
+    Name = "NPC Outline Color",
     Color = _G.NPCOutlineColor,
     Callback = function(Value)
         _G.NPCOutlineColor = Value
     end
 })
 
--- SEÇÃO: DISTÂNCIA
-Esptab:CreateSection("Outros")
+-- SECTION: DISTANCE
+Esptab:CreateSection("Others")
 
 Esptab:CreateToggle({
    Name = "NPC Distance ESP",
@@ -243,7 +317,7 @@ Esptab:CreateToggle({
             end
             task.wait(0.1)
          end
-         -- Limpar ao desligar
+         -- Cleanup
          if not _G.ShowDistance then
             for _, v in pairs(workspace:GetDescendants()) do
                if v.Name == "DistanceGui" then v:Destroy() end
@@ -254,7 +328,7 @@ Esptab:CreateToggle({
 })
 
 ---
--- ABA MISC
+-- MISC TAB
 ---
 MiscTab:CreateToggle({
    Name = "Instant Proximity Prompt",
