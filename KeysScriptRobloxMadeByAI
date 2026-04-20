@@ -1,4 +1,4 @@
--- Script Lua/Roblox Otimizado (Apenas NPC ESP com Distância)
+-- Script Lua/Roblox Otimizado (NPC ESP com lógica original e otimizações)
 
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
@@ -145,21 +145,18 @@ task.spawn(function()
         else
             local npcsToHighlight = {}
 
-            -- Coleta NPCs para highlight (otimizado para evitar GetDescendants() repetido)
-            -- Itera apenas pelos children do workspace, que geralmente são modelos ou pastas contendo NPCs
-            for _, child in pairs(workspace:GetChildren()) do
-                if child:IsA("Model") then
-                    local humanoid = child:FindFirstChildOfClass("Humanoid")
-                    -- Verifica se é um NPC (tem Humanoid e não é um jogador)
-                    if humanoid and not game.Players:GetPlayerFromCharacter(child) then
-                        npcsToHighlight[child] = true
-                        ApplyVisuals(child, NPCColor)
-                        if NPC_Names_Enabled and localCharacter and localCharacter:FindFirstChild("HumanoidRootPart") and child:FindFirstChild("HumanoidRootPart") then
-                            local dist = math.floor((localCharacter.HumanoidRootPart.Position - child.HumanoidRootPart.Position).Magnitude)
-                            UpdateBillboard(child, child.Name .. " [" .. dist .. "m]", NPCColor)
-                        else
-                            RemoveBillboard(child)
-                        end
+            -- Lógica original do NPC ESP, mas com otimizações de cache
+            for _, v in pairs(workspace:GetDescendants()) do
+                if v:IsA("Humanoid") and v.Parent and not game.Players:GetPlayerFromCharacter(v.Parent) then
+                    local npcModel = v.Parent
+                    npcsToHighlight[npcModel] = true
+                    ApplyVisuals(npcModel, NPCColor)
+                    
+                    if NPC_Names_Enabled and localCharacter and localCharacter:FindFirstChild("HumanoidRootPart") and npcModel:FindFirstChild("HumanoidRootPart") then
+                        local dist = math.floor((localCharacter.HumanoidRootPart.Position - npcModel.HumanoidRootPart.Position).Magnitude)
+                        UpdateBillboard(npcModel, npcModel.Name .. " [" .. dist .. "m]", NPCColor)
+                    else
+                        RemoveBillboard(npcModel)
                     end
                 end
             end
@@ -242,9 +239,6 @@ local TabESP = Window:CreateTab("👁️ Visuals", 4483362458)
 
 TabESP:CreateToggle({Name = "🌈 Rainbow Mode", CurrentValue = false, Callback = function(Value) Rainbow_ESP = Value end})
 
--- Removido: TabESP:CreateSection("👥 Jogadores")
--- Removido: TabESP:CreateToggle({Name = "📍 ESP Players", CurrentValue = false, Callback = function(Value) ESP_Enabled = Value end})
-
 TabESP:CreateSection("👾 NPCs")
 TabESP:CreateToggle({Name = "🎯 ESP NPCs", CurrentValue = false, Callback = function(Value) NPC_ESP_Enabled = Value end})
 TabESP:CreateToggle({Name = "📝 Nome & Distância", CurrentValue = false, Callback = function(Value) NPC_Names_Enabled = Value end})
@@ -252,7 +246,7 @@ TabESP:CreateToggle({Name = "📝 Nome & Distância", CurrentValue = false, Call
 --- ABA MISC ---
 local TabMisc = Window:CreateTab("⚙️ Misc", 4483362458)
 TabMisc:CreateToggle({
-    Name = "🖱️ Open doors quickly",
+    Name = "🖱️ No Prompt Cooldown",
     CurrentValue = false,
     Callback = function(Value)
         _G.NoPromptCooldown = Value
